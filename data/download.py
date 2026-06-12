@@ -1,50 +1,48 @@
 """Download Amazon Reviews 2023 — All_Beauty category.
 
-Uses the HuggingFace datasets mirror so no manual URL handling is needed.
+Uses huggingface_hub to download the raw JSONL files directly, bypassing the
+dataset loading script which datasets>=3.0 no longer supports.
+
 Run: python -m data.download
 """
 
-import json
+import shutil
 from pathlib import Path
 
-from datasets import load_dataset
+from huggingface_hub import hf_hub_download
 from rich.console import Console
 
 RAW = Path("data/raw")
+REPO_ID = "McAuley-Lab/Amazon-Reviews-2023"
+
 console = Console()
 
 
-def download_meta() -> None:
-    """Product metadata: title, description, price, category."""
-    console.print("[bold]Downloading product metadata...[/bold]")
-    ds = load_dataset(
-        "McAuley-Lab/Amazon-Reviews-2023",
-        "raw_meta_All_Beauty",
-        split="full",
-        trust_remote_code=True,
+def _download(repo_path: str, dest: Path) -> None:
+    if dest.exists():
+        console.print(f"  [dim]Already exists: {dest}[/dim]")
+        return
+    console.print(f"  Downloading {repo_path} ...")
+    tmp = hf_hub_download(
+        repo_id=REPO_ID,
+        filename=repo_path,
+        repo_type="dataset",
     )
-    out = RAW / "meta.jsonl"
-    out.parent.mkdir(parents=True, exist_ok=True)
-    with out.open("w") as f:
-        for row in ds:
-            f.write(json.dumps(row) + "\n")
-    console.print(f"[green]Saved {len(ds):,} products → {out}[/green]")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(tmp, dest)
+    console.print(f"  [green]→ {dest}[/green]")
+
+
+def download_meta() -> None:
+    """Product metadata: parent_asin, title, description, price, category."""
+    console.print("[bold]Downloading product metadata...[/bold]")
+    _download("raw/meta_categories/meta_All_Beauty.jsonl", RAW / "meta.jsonl")
 
 
 def download_interactions() -> None:
-    """User–item interactions: user_id, item_id, rating, timestamp."""
+    """User-item interactions: user_id, parent_asin, rating, timestamp."""
     console.print("[bold]Downloading user interactions...[/bold]")
-    ds = load_dataset(
-        "McAuley-Lab/Amazon-Reviews-2023",
-        "0core_rating_only_All_Beauty",
-        split="full",
-        trust_remote_code=True,
-    )
-    out = RAW / "interactions.jsonl"
-    with out.open("w") as f:
-        for row in ds:
-            f.write(json.dumps(row) + "\n")
-    console.print(f"[green]Saved {len(ds):,} interactions → {out}[/green]")
+    _download("raw/review_categories/All_Beauty.jsonl", RAW / "interactions.jsonl")
 
 
 if __name__ == "__main__":

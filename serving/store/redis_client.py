@@ -84,12 +84,20 @@ class ItemStore:
     # ── Semantic ID prefix index (cold-start fallback) ───────────────────────
 
     def add_to_prefix_index(self, item_id: str, codes: tuple[int, ...]) -> None:
-        """Add item_id to the prefix set for its (c0, c1) prefix."""
+        """Add item_id to the (c0, c1) prefix set — used for cold-start fallback."""
         self._r.sadd(f"prefix:{codes[0]}:{codes[1]}", item_id)
 
     def get_items_by_prefix(self, c0: int, c1: int, limit: int = 50) -> list[str]:
         """Return up to `limit` random item_ids sharing the (c0, c1) prefix."""
         return self._r.srandmember(f"prefix:{c0}:{c1}", limit) or []
+
+    def add_to_prefix3_index(self, item_id: str, codes: tuple[int, ...]) -> None:
+        """Add item_id to the (c0, c1, c2) prefix set — used by SASRec beam search."""
+        self._r.sadd(f"prefix3:{codes[0]}:{codes[1]}:{codes[2]}", item_id)
+
+    def get_items_by_prefix3(self, c0: int, c1: int, c2: int, limit: int = 50) -> list[str]:
+        """Return up to `limit` random item_ids sharing the (c0, c1, c2) prefix."""
+        return self._r.srandmember(f"prefix3:{c0}:{c1}:{c2}", limit) or []
 
     # ── Feature store (raw embeddings for FAISS auditing) ────────────────────
 

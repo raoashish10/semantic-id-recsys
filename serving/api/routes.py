@@ -156,7 +156,7 @@ async def recommend(
     if inp is None:
         raise HTTPException(status_code=422, detail="No session items found in catalog")
 
-    recs = beam_recommend(state.model, state.store, inp, state.num_levels, req.top_k)
+    recs = beam_recommend(state.model, state.store, inp, state.num_levels, req.top_k, exclude_ids=set(req.session))
 
     # ── 5. Write back to Redis in background — don't block the response ───────
     if req.user_id and recs:

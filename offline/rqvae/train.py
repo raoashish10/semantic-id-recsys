@@ -36,6 +36,7 @@ import mlflow
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.cluster import MiniBatchKMeans
 from torch.utils.data import DataLoader, TensorDataset
 from rich.console import Console
 
@@ -46,13 +47,13 @@ OUT_DIR = Path("artifacts/rqvae")
 MLFLOW_URI = "http://localhost:5001"
 
 CONFIG = {
-    "hidden_dim": 256,
-    "num_codes": 256,
+    "hidden_dim": 128,
+    "num_codes": 32,   # 32^3 = 32,768 possible 3-tuples for 1,693 items — avoids collapse
     "num_levels": 3,
-    "commitment_cost": 0.25,
+    "commitment_cost": 2.0,  # higher value forces codebook spread; 0.25 collapses on small catalogs
     "lr": 3e-4,
-    "batch_size": 512,
-    "epochs": 50,
+    "batch_size": 256,
+    "epochs": 100,
 }
 
 console = Console()
@@ -121,6 +122,32 @@ def train(cfg: dict = CONFIG) -> None:
         TensorDataset(embeddings), batch_size=cfg["batch_size"], shuffle=True
     )
 
+    # ── K-means codebook initialization ──────────────────────────────────────
+    # Without this, small datasets (< 10k items) collapse — all inputs map to
+    # the same nearest code because random initialization places all centroids
+    # equidistant from a tight cluster. K-means seeds each level's codebook at
+    # actual data centroids so gradient updates start from a spread-out state.
+    console.print("[bold]Initialising codebooks with k-means...[/bold]")
+    model.eval()
+    with torch.no_grad():
+        z_all = model.encoder(embeddings.to(device))
+        residual = z_all.cpu().numpy()
+        for level, quantizer in enumerate(model.quantizers):
+            km = MiniBatchKMeans(
+                n_clusters=cfg["num_codes"], n_init=5, random_state=level, max_iter=300
+            )
+            km.fit(residual)
+            quantizer.codebook.weight.data = torch.tensor(
+                km.cluster_centers_, dtype=torch.float32, device=device
+            )
+            # compute residual for next level using assigned codes
+            assigned = quantizer.codebook(
+                torch.tensor(km.labels_, dtype=torch.long, device=device)
+            )
+            residual = residual - assigned.cpu().numpy()
+            used = len(set(km.labels_))
+            console.print(f"  level {level}: {used}/{cfg['num_codes']} codes used after k-means init")
+
     mlflow.set_tracking_uri(MLFLOW_URI)
     with mlflow.start_run(run_name="rqvae"):
         mlflow.log_params(cfg)
@@ -165,8 +192,12 @@ def train(cfg: dict = CONFIG) -> None:
         # config records num_levels=3 (the trained model) and notes that the
         # saved semantic IDs always have 4 columns (c0–c3) where c3 is the
         # sequential disambiguator, not a learned codebook level
+        # num_sid_tokens=3: SASRec uses only the 3 semantic levels (c0,c1,c2).
+        # c3 is a sequential disambiguator — it has no semantic ordering and
+        # its values can exceed num_codes, making it incompatible with the
+        # shared token embedding table.
         with (OUT_DIR / "config.json").open("w") as f:
-            json.dump({**cfg, "input_dim": input_dim, "num_sid_tokens": 4}, f, indent=2)
+            json.dump({**cfg, "input_dim": input_dim, "num_sid_tokens": 3}, f, indent=2)
 
         df = pd.DataFrame({"item_id": item_ids})
         for lvl in range(4):

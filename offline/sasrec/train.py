@@ -111,7 +111,7 @@ def train(cfg: dict = CONFIG) -> None:
     num_sid_tokens = rq_cfg.get("num_sid_tokens", rq_cfg["num_levels"])
 
     console.print(f"[bold]Loading datasets[/bold]  (num_codes={num_codes}, num_sid_tokens={num_sid_tokens})")
-    train_ds, val_ds, _ = load_dataset(SEQUENCES, SID_PATH, cfg["max_len"])
+    train_ds, val_ds, _ = load_dataset(SEQUENCES, SID_PATH, cfg["max_len"], num_levels=num_sid_tokens)
     console.print(f"  train={len(train_ds):,}  val={len(val_ds):,}")
 
     train_loader = DataLoader(train_ds, batch_size=cfg["batch_size"], shuffle=True)
@@ -163,19 +163,20 @@ def train(cfg: dict = CONFIG) -> None:
                     f"  epoch {epoch:3d}  train_loss={avg_loss:.4f}  "
                     f"val_loss={metrics['loss']:.4f}  hit@10={metrics['hit@10']:.4f}"
                 )
+                safe_metrics = {k.replace("@", "_at_"): v for k, v in metrics.items()}
                 mlflow.log_metrics(
-                    {"train_loss": avg_loss, **{f"val_{k}": v for k, v in metrics.items()}},
+                    {"train_loss": avg_loss, **{f"val_{k}": v for k, v in safe_metrics.items()}},
                     step=epoch,
                 )
                 if metrics["hit@10"] > best_hit:
-                    best_hit = metrics["hit@10"]
+                    best_hit = safe_metrics.get("hit_at_10", metrics["hit@10"])
                     torch.save(model.state_dict(), OUT_DIR / "model.pt")
 
         full_cfg = {
             **cfg,
             "num_codes": num_codes,
             "num_levels": num_sid_tokens,  # 4 tokens per item (3 learned + 1 disambiguator)
-            "best_hit@10": best_hit,
+            "best_hit_at_10": best_hit,
         }
         with (OUT_DIR / "config.json").open("w") as f:
             json.dump(full_cfg, f, indent=2)

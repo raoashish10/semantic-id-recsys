@@ -112,7 +112,8 @@ def index_task() -> None:
         item_id = row["item_id"]
         title = meta.get(item_id, {}).get("title", "")
         store.set_item(item_id, codes, title)
-        store.add_to_prefix_index(item_id, codes)
+        store.add_to_prefix_index(item_id, codes)    # prefix:{c0}:{c1}   — cold-start (c0,c1)
+        store.add_to_prefix3_index(item_id, codes)   # prefix3:{c0}:{c1}:{c2} — SASRec beam search
         if item_id in id_to_emb:
             store.set_item_features(item_id, id_to_emb[item_id])
         count += 1

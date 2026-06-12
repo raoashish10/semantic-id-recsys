@@ -92,13 +92,23 @@ def load_dataset(
     sequences_path: Path,
     semantic_ids_path: Path,
     max_len: int = 50,
+    num_levels: int | None = None,
 ) -> tuple[SeqDataset, SeqDataset, SeqDataset]:
-    """Load train/val/test splits from parquet files."""
+    """Load train/val/test splits from parquet files.
+
+    Args:
+        num_levels: if set, truncate semantic ID codes to this many levels.
+                    Use this to drop the c3 disambiguator (which is not a
+                    learned codebook token and may exceed the embedding vocab).
+    """
     seqs_df = pd.read_parquet(sequences_path)
     ids_df = pd.read_parquet(semantic_ids_path)
 
-    # Build item_id → codes mapping
+    # Build item_id → codes mapping, optionally truncating to num_levels
     code_cols = [c for c in ids_df.columns if c.startswith("c")]
+    if num_levels is not None:
+        code_cols = code_cols[:num_levels]
+
     id_to_codes = {
         row["item_id"]: row[code_cols].values.astype(np.int64)
         for _, row in ids_df.iterrows()

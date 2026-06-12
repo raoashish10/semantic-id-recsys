@@ -60,11 +60,14 @@ def beam_recommend(
     num_levels: int,
     top_k: int,
     top_per_level: int = 5,
+    exclude_ids: set[str] | None = None,
 ) -> list[RecommendedItem]:
     """SASRec beam search over semantic ID space → real items.
 
-    Tries the greedy top-1 prediction first, then expands level-0 for
-    category diversity, then level-1 for within-category diversity.
+    Predicts the top-K (c0, c1, c2) prefix combinations, then resolves each
+    to a set of real items via the prefix3:{c0}:{c1}:{c2} Redis index. This
+    is correct for 3-level prediction where c3 is a sequential disambiguator
+    that carries no semantic meaning for the model to predict.
     """
     with torch.no_grad():
         padding_mask = torch.zeros(inp.shape[:2], dtype=torch.bool, device=inp.device)
@@ -75,28 +78,40 @@ def beam_recommend(
         for lvl in range(num_levels)
     ]
 
-    seen: set[tuple] = set()
+    seen_prefixes: set[tuple] = set()
+    seen_items: set[str] = set(exclude_ids) if exclude_ids else set()
     results: list[RecommendedItem] = []
 
-    def try_lookup(codes: tuple[int, ...]) -> None:
-        if codes in seen:
+    def try_prefix(prefix: tuple[int, ...]) -> None:
+        if prefix in seen_prefixes:
             return
-        seen.add(codes)
-        item_id = store.get_item_id(codes)
-        if item_id is None:
-            return
-        title = store.get_title(item_id)
-        results.append(RecommendedItem(item_id=item_id, title=title, semantic_id=list(codes)))
+        seen_prefixes.add(prefix)
+        candidates = store.get_items_by_prefix3(*prefix, limit=top_k * 2)
+        for item_id in candidates:
+            if item_id in seen_items or len(results) >= top_k:
+                continue
+            seen_items.add(item_id)
+            codes = store.get_codes(item_id)
+            if codes is None:
+                continue
+            results.append(RecommendedItem(
+                item_id=item_id,
+                title=store.get_title(item_id),
+                semantic_id=codes,
+            ))
 
-    try_lookup(tuple(top_codes[lvl][0] for lvl in range(num_levels)))
+    # Greedy: top-1 at each level
+    try_prefix(tuple(top_codes[lvl][0] for lvl in range(num_levels)))
 
+    # Expand level-0 for broad category diversity
     for c0 in top_codes[0]:
-        try_lookup((c0,) + tuple(top_codes[lvl][0] for lvl in range(1, num_levels)))
+        try_prefix((c0,) + tuple(top_codes[lvl][0] for lvl in range(1, num_levels)))
         if len(results) >= top_k:
             break
 
+    # Expand level-1 for within-category diversity
     for c1 in top_codes[1]:
-        try_lookup((top_codes[0][0], c1) + tuple(top_codes[lvl][0] for lvl in range(2, num_levels)))
+        try_prefix((top_codes[0][0], c1) + tuple(top_codes[lvl][0] for lvl in range(2, num_levels)))
         if len(results) >= top_k:
             break
 

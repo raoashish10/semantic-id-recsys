@@ -18,7 +18,10 @@ RAW = Path("data/raw")
 PROCESSED = Path("data/processed")
 console = Console()
 
-MIN_INTERACTIONS = 5  # 5-core filter: drop users/items with fewer interactions
+MIN_INTERACTIONS = 3  # 3-core filter: drop users/items with fewer interactions
+# All_Beauty is a sparse category (75th-percentile user has 1 interaction).
+# 5-core collapses the dataset to ~50 users; 3-core keeps 1,500+ users
+# all with ≥3 interactions, which is the minimum the dataset loader needs.
 MIN_RATING = 4        # only treat ratings >= 4 as positive interactions
 
 
@@ -83,7 +86,7 @@ def build_sequences() -> pd.DataFrame:
         .reset_index()
         .rename(columns={"item_id": "item_ids"})
     )
-    console.print(f"  {len(sequences):,} users, {df['item_id'].nunique():,} items after 5-core filter")
+    console.print(f"  {len(sequences):,} users, {df['item_id'].nunique():,} items after {MIN_INTERACTIONS}-core filter")
     return sequences
 
 
