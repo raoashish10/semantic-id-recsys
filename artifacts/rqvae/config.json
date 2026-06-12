@@ -1,0 +1,11 @@
+{
+  "hidden_dim": 128,
+  "num_codes": 32,
+  "num_levels": 3,
+  "commitment_cost": 2.0,
+  "lr": 0.0003,
+  "batch_size": 256,
+  "epochs": 100,
+  "input_dim": 384,
+  "num_sid_tokens": 3
+}

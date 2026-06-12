@@ -1,0 +1,13 @@
+{
+  "hidden_dim": 128,
+  "num_heads": 2,
+  "num_layers": 2,
+  "max_len": 50,
+  "dropout": 0.2,
+  "lr": 0.001,
+  "batch_size": 256,
+  "epochs": 30,
+  "num_codes": 32,
+  "num_levels": 3,
+  "best_hit_at_10": 0.984967320261438
+}
