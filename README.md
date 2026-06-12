@@ -180,7 +180,8 @@ make pipeline
 # Or step by step
 make data && make embeddings && make rqvae && make sasrec
 make ann && make ranking
-make pipeline --from index   # populate Redis + precompute recs
+make index        # populate Redis: semantic IDs + prefix index + feature store
+make precompute   # beam search over all users → recs:{user_id} keys
 
 # Start the serving API
 make serve   # http://localhost:8000/docs

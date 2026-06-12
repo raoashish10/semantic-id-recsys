@@ -1,4 +1,4 @@
-.PHONY: install data embeddings rqvae sasrec pipeline serve fmt
+.PHONY: install data embeddings rqvae sasrec ann ranking index precompute pipeline serve up down fmt
 
 install:
 	pip install -e ".[dev]"
@@ -24,10 +24,13 @@ ann:
 ranking:
 	python -m offline.ranking.train
 
-precompute:
-	python -m offline.precompute
+index:
+	python -m offline.pipeline --from index
 
-# Run the full offline pipeline via Prefect
+precompute:
+	python -m offline.pipeline --from precompute
+
+# Run the full offline pipeline end-to-end via Prefect
 pipeline:
 	python -m offline.pipeline
 
