@@ -29,7 +29,8 @@ import os
 from collections import Counter
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from serving.inference import beam_recommend, build_input
@@ -102,10 +103,15 @@ async def recommend(
     if req.user_id:
         cached = state.store.get_user_recs(req.user_id)
         if cached is not None:
-            return RecommendResponse(
+            resp = RecommendResponse(
                 recommendations=[RecommendedItem(**r) for r in cached[: req.top_k]],
                 session_length=len(req.session),
                 cache_hit=True,
+            )
+            return Response(
+                content=resp.model_dump_json(),
+                media_type="application/json",
+                headers={"X-Serving-Path": "cache_hit"},
             )
 
     # ── 2 & 3. Cold start: session too short for meaningful SASRec attention ──
@@ -141,11 +147,19 @@ async def recommend(
                     req.user_id,
                     [r.model_dump() for r in recs],
                 )
-            return RecommendResponse(
+            resp = RecommendResponse(
                 recommendations=recs,
                 session_length=len(req.session),
                 cache_hit=False,
                 cold_start_method=cold_start_method,
+            )
+            return Response(
+                content=resp.model_dump_json(),
+                media_type="application/json",
+                headers={
+                    "X-Serving-Path": "cold_start",
+                    "X-Cold-Start-Method": cold_start_method,
+                },
             )
         # Neither LLM nor prefix produced anything — fall through to SASRec
 
@@ -166,10 +180,15 @@ async def recommend(
             [r.model_dump() for r in recs],
         )
 
-    return RecommendResponse(
+    resp = RecommendResponse(
         recommendations=recs,
         session_length=n_resolved,
         cache_hit=False,
+    )
+    return Response(
+        content=resp.model_dump_json(),
+        media_type="application/json",
+        headers={"X-Serving-Path": "warm"},
     )
 
 

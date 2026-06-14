@@ -14,6 +14,7 @@ Steps
   sasrec     → sasrec model.pt
   ann        → FAISS index + item_ids.json
   ranking    → MLP ranker model.pt
+  evaluate   → Recall@K / NDCG@K logged to MLflow; fails if below baseline (gate)
   index      → Redis: semantic IDs + feature store + prefix index populated
   precompute → recs:{user_id} keys written to Redis via SASRec beam search
 """
@@ -26,7 +27,7 @@ from rich.console import Console
 
 console = Console()
 
-STEPS = ["download", "preprocess", "embeddings", "rqvae", "sasrec", "ann", "ranking", "index", "precompute"]
+STEPS = ["download", "preprocess", "embeddings", "rqvae", "sasrec", "ann", "ranking", "evaluate", "index", "precompute"]
 
 
 @task(name="download")
@@ -80,6 +81,12 @@ def ranking_task() -> None:
 def precompute_task() -> None:
     from offline.precompute import precompute
     precompute()
+
+
+@task(name="evaluate")
+def evaluate_task() -> None:
+    from offline.evaluate import run
+    run(k=10, gate=True)
 
 
 @task(name="index")
@@ -142,6 +149,8 @@ def pipeline(start_from: str = "download") -> None:
         ann_task()
     if "ranking" in active:
         ranking_task()
+    if "evaluate" in active:
+        evaluate_task()
     if "index" in active:
         index_task()
     if "precompute" in active:

@@ -6,14 +6,16 @@ The app loads the SASRec model once at startup and keeps it in memory.
 The Redis item store is used for fast item ↔ semantic ID lookups.
 """
 
+import time
 from contextlib import asynccontextmanager
-from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from rich.console import Console
 
 from serving.api.routes import router
 from serving.api.state import AppState
+from serving.metrics import CACHE_HIT_COUNT, COLD_START_COUNT, REGISTRY, REQUEST_COUNT, REQUEST_LATENCY
 
 console = Console()
 state = AppState()
@@ -25,7 +27,6 @@ async def lifespan(app: FastAPI):
     state.load()
     console.print("[green]Ready[/green]")
     yield
-    # Cleanup (if needed) goes here
 
 
 app = FastAPI(
@@ -34,6 +35,32 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def prometheus_middleware(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    latency = time.perf_counter() - start
+
+    if request.url.path == "/recommend" and request.method == "POST":
+        # Determine path type from response body tag (set by route handler via header)
+        path_type = response.headers.get("X-Serving-Path", "warm")
+        REQUEST_COUNT.labels(path_type=path_type).inc()
+        REQUEST_LATENCY.labels(path_type=path_type).observe(latency)
+        if path_type == "cache_hit":
+            CACHE_HIT_COUNT.inc()
+        elif path_type == "cold_start":
+            method = response.headers.get("X-Cold-Start-Method", "prefix_fallback")
+            COLD_START_COUNT.labels(method=method).inc()
+
+    return response
+
+
+@app.get("/metrics", include_in_schema=False)
+async def metrics():
+    return Response(generate_latest(REGISTRY), media_type=CONTENT_TYPE_LATEST)
+
 
 app.include_router(router)
 app.state.recsys = state

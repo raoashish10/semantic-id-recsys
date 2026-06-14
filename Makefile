@@ -1,4 +1,4 @@
-.PHONY: install data embeddings rqvae sasrec ann ranking index precompute pipeline serve up down fmt
+.PHONY: install data embeddings rqvae sasrec ann ranking evaluate index precompute pipeline serve up down fmt test load-test
 
 install:
 	pip install -e ".[dev]"
@@ -24,6 +24,9 @@ ann:
 ranking:
 	python -m offline.ranking.train
 
+evaluate:
+	python -m offline.evaluate --gate
+
 index:
 	python -m offline.pipeline --from index
 
@@ -46,6 +49,12 @@ up:
 
 down:
 	docker compose -f infra/docker-compose.yml down
+
+test:
+	COLD_START_LLM_ENABLED=false pytest tests/ --ignore=tests/load -v --cov=serving --cov=offline --cov-report=term-missing
+
+load-test:
+	locust -f tests/load/locustfile.py --host http://localhost:8000 --headless -u 50 -r 5 -t 60s --html tests/load/report.html
 
 fmt:
 	ruff format . && ruff check --fix .
