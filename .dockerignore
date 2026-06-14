@@ -1,0 +1,31 @@
+# Git
+.git/
+.github/
+
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+
+# Heavy offline pipeline outputs (not needed at serve time)
+data/raw/
+data/processed/
+artifacts/embeddings/
+artifacts/ann/
+artifacts/ranking/
+
+# MLflow tracking
+mlruns/
+mlartifacts/
+
+# Tests and dev tooling
+tests/
+pytest.ini
+locustfile.py
+
+# Notebooks / local configs
+notebooks/
+.env

@@ -1,4 +1,4 @@
-.PHONY: install data embeddings rqvae sasrec ann ranking evaluate index precompute pipeline serve up down fmt test load-test
+.PHONY: install data embeddings rqvae sasrec ann ranking evaluate index precompute pipeline serve up down fmt test load-test docker-build
 
 install:
 	pip install -e ".[dev]"
@@ -43,6 +43,9 @@ serve:
 	uvicorn serving.api.main:app --reload --port 8000
 
 # ── Infra ────────────────────────────────────────────────────────────────────
+
+docker-build:
+	docker build -t recsys-mlops:latest .
 
 up:
 	docker compose -f infra/docker-compose.yml up -d

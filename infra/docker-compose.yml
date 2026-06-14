@@ -1,6 +1,19 @@
 version: "3.8"
 
+# Full recsys-mlops stack.
+#
+# Start everything:
+#   docker compose -f infra/docker-compose.yml up -d
+#
+# Services
+#   redis   — item store, prefix index, precomputed recs cache
+#   mlflow  — experiment tracking UI at http://localhost:5001
+#   ollama  — local LLM for cold-start intent inference (llama3.2)
+#   api     — FastAPI serving at http://localhost:8000
+
 services:
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     ports:
@@ -14,6 +27,7 @@ services:
       timeout: 3s
       retries: 5
 
+  # ── MLflow tracking server ────────────────────────────────────────────────
   mlflow:
     image: ghcr.io/mlflow/mlflow:v2.14.1
     ports:
@@ -27,19 +41,58 @@ services:
         --port 5000
         --backend-store-uri /mlruns
         --default-artifact-root /mlartifacts
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  # Serving API — uncomment once model artifacts exist
-  # api:
-  #   build: ..
-  #   command: uvicorn serving.api.main:app --host 0.0.0.0 --port 8000
-  #   ports:
-  #     - "8000:8000"
-  #   environment:
-  #     REDIS_URL: redis://redis:6379
-  #     MLFLOW_TRACKING_URI: http://mlflow:5000
-  #   depends_on:
-  #     redis:
-  #       condition: service_healthy
+  # ── Ollama (local LLM for cold-start intent inference) ────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # Pull the model on first startup if not already cached in the volume
+    entrypoint: >
+      sh -c "ollama serve &
+             sleep 5 &&
+             ollama pull llama3.2 &&
+             wait"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+  # ── FastAPI serving API ───────────────────────────────────────────────────
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      REDIS_URL: redis://redis:6379
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      OLLAMA_BASE_URL: http://ollama:11434
+      COLD_START_LLM_ENABLED: "true"
+      REC_TTL_SECONDS: "86400"
+    depends_on:
+      redis:
+        condition: service_healthy
+      # Ollama is best-effort — API starts without it, LLM cold-start simply
+      # falls back to prefix_fallback if Ollama is unavailable.
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: on-failure
 
 volumes:
   redis_data:
+  ollama_data:
