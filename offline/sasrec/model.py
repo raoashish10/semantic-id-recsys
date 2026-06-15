@@ -21,7 +21,6 @@ Reference: "Self-Attentive Sequential Recommendation" (Kang & McAuley, 2018)
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class SASRec(nn.Module):
@@ -52,14 +51,14 @@ class SASRec(nn.Module):
             dim_feedforward=hidden_dim * 4,
             dropout=dropout,
             batch_first=True,
-            norm_first=True,   # pre-norm is more stable
+            norm_first=True,  # pre-norm is more stable
         )
         self.transformer = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
         # One classification head per level — each predicts which of num_codes to use
-        self.output_heads = nn.ModuleList([
-            nn.Linear(hidden_dim, num_codes) for _ in range(num_levels)
-        ])
+        self.output_heads = nn.ModuleList(
+            [nn.Linear(hidden_dim, num_codes) for _ in range(num_levels)]
+        )
 
         self.dropout = nn.Dropout(dropout)
         self._init_weights()
@@ -84,7 +83,7 @@ class SASRec(nn.Module):
 
     def forward(
         self,
-        codes: torch.Tensor,         # (B, T, L) — input sequence semantic IDs
+        codes: torch.Tensor,  # (B, T, L) — input sequence semantic IDs
         padding_mask: torch.Tensor,  # (B, T)    — True where position is padding
     ) -> list[torch.Tensor]:
         """
@@ -101,7 +100,9 @@ class SASRec(nn.Module):
         x = self.dropout(x + self.pos_embed(positions))
 
         # Causal attention mask: position i cannot attend to positions > i
-        causal_mask = nn.Transformer.generate_square_subsequent_mask(T, device=codes.device)
+        causal_mask = nn.Transformer.generate_square_subsequent_mask(
+            T, device=codes.device
+        )
 
         h = self.transformer(x, mask=causal_mask, src_key_padding_mask=padding_mask)
         # h: (B, T, D)
@@ -115,7 +116,9 @@ class SASRec(nn.Module):
     ) -> torch.Tensor:
         """Predict the next item's semantic IDs. Returns (B, L) of predicted codes."""
         self.eval()
-        padding_mask = torch.zeros(codes.shape[:2], dtype=torch.bool, device=codes.device)
+        padding_mask = torch.zeros(
+            codes.shape[:2], dtype=torch.bool, device=codes.device
+        )
         logits_per_level = self.forward(codes, padding_mask)  # L × (B, T, num_codes)
         # Take the prediction at the last position
         predicted = torch.stack(

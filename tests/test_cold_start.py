@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from serving.api.routes import _prefix_recommend, COLD_START_THRESHOLD
 

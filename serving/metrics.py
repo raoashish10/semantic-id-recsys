@@ -16,7 +16,7 @@ path_type values
 Exposed at GET /metrics (text/plain Prometheus format).
 """
 
-from prometheus_client import Counter, Histogram, CollectorRegistry, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_client import Counter, Histogram, CollectorRegistry
 
 REGISTRY = CollectorRegistry(auto_describe=True)
 

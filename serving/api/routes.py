@@ -30,7 +30,6 @@ from collections import Counter
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from serving.inference import beam_recommend, build_input
@@ -42,13 +41,19 @@ router = APIRouter()
 
 COLD_START_THRESHOLD = 3
 COLD_START_LLM_ENABLED = os.getenv("COLD_START_LLM_ENABLED", "true").lower() not in (
-    "false", "0", "no"
+    "false",
+    "0",
+    "no",
 )
 
 
 class RecommendRequest(BaseModel):
-    user_id: Optional[str] = Field(default=None, description="Used to look up / write precomputed recs")
-    session: list[str] = Field(..., description="Ordered list of recently interacted item IDs")
+    user_id: Optional[str] = Field(
+        default=None, description="Used to look up / write precomputed recs"
+    )
+    session: list[str] = Field(
+        ..., description="Ordered list of recently interacted item IDs"
+    )
     top_k: int = Field(default=10, ge=1, le=100)
 
 
@@ -80,11 +85,13 @@ def _prefix_recommend(session: list[str], store, top_k: int) -> list[Recommended
         codes = store.get_codes(item_id)
         if codes is None:
             continue
-        recs.append(RecommendedItem(
-            item_id=item_id,
-            title=store.get_title(item_id),
-            semantic_id=codes,
-        ))
+        recs.append(
+            RecommendedItem(
+                item_id=item_id,
+                title=store.get_title(item_id),
+                semantic_id=codes,
+            )
+        )
         if len(recs) >= top_k:
             break
 
@@ -125,14 +132,18 @@ async def recommend(
             if intent_result is None:
                 try:
                     item_titles = [state.store.get_title(iid) for iid in req.session]
-                    item_codes = [state.store.get_codes(iid) or [] for iid in req.session]
+                    item_codes = [
+                        state.store.get_codes(iid) or [] for iid in req.session
+                    ]
                     intent_result = await infer_session_intent(item_titles, item_codes)
                     state.intent_cache.set(req.session, intent_result)
                 except Exception:
                     intent_result = None
 
             if intent_result is not None:
-                recs = intent_based_recommend(intent_result, req.session, state.store, req.top_k)
+                recs = intent_based_recommend(
+                    intent_result, req.session, state.store, req.top_k
+                )
                 if recs:
                     cold_start_method = "intent"
 
@@ -170,7 +181,14 @@ async def recommend(
     if inp is None:
         raise HTTPException(status_code=422, detail="No session items found in catalog")
 
-    recs = beam_recommend(state.model, state.store, inp, state.num_levels, req.top_k, exclude_ids=set(req.session))
+    recs = beam_recommend(
+        state.model,
+        state.store,
+        inp,
+        state.num_levels,
+        req.top_k,
+        exclude_ids=set(req.session),
+    )
 
     # ── 5. Write back to Redis in background — don't block the response ───────
     if req.user_id and recs:

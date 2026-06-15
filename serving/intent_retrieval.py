@@ -88,14 +88,16 @@ def intent_based_recommend(
                 continue
 
             score = prefix.weight * _cosine_sim(intent_emb, item_emb)
-            scored.append((
-                score,
-                RecommendedItem(
-                    item_id=item_id,
-                    title=store.get_title(item_id),
-                    semantic_id=codes,
-                ),
-            ))
+            scored.append(
+                (
+                    score,
+                    RecommendedItem(
+                        item_id=item_id,
+                        title=store.get_title(item_id),
+                        semantic_id=codes,
+                    ),
+                )
+            )
 
     scored.sort(key=lambda x: x[0], reverse=True)
     return [item for _, item in scored[:top_k]]

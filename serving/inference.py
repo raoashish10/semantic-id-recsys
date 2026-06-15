@@ -94,11 +94,13 @@ def beam_recommend(
             codes = store.get_codes(item_id)
             if codes is None:
                 continue
-            results.append(RecommendedItem(
-                item_id=item_id,
-                title=store.get_title(item_id),
-                semantic_id=codes,
-            ))
+            results.append(
+                RecommendedItem(
+                    item_id=item_id,
+                    title=store.get_title(item_id),
+                    semantic_id=codes,
+                )
+            )
 
     # Greedy: top-1 at each level
     try_prefix(tuple(top_codes[lvl][0] for lvl in range(num_levels)))
@@ -111,7 +113,10 @@ def beam_recommend(
 
     # Expand level-1 for within-category diversity
     for c1 in top_codes[1]:
-        try_prefix((top_codes[0][0], c1) + tuple(top_codes[lvl][0] for lvl in range(2, num_levels)))
+        try_prefix(
+            (top_codes[0][0], c1)
+            + tuple(top_codes[lvl][0] for lvl in range(2, num_levels))
+        )
         if len(results) >= top_k:
             break
 

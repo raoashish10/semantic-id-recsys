@@ -1,7 +1,6 @@
 """Shared Pydantic response models used by both the API routes and precompute script."""
 
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel
 
 
 class RecommendedItem(BaseModel):

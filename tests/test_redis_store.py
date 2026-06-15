@@ -1,7 +1,6 @@
 """Tests for ItemStore Redis CRUD operations (backed by fakeredis)."""
 
 import numpy as np
-import pytest
 
 
 def test_set_and_get_item(fake_store):

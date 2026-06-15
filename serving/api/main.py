@@ -15,7 +15,13 @@ from rich.console import Console
 
 from serving.api.routes import router
 from serving.api.state import AppState
-from serving.metrics import CACHE_HIT_COUNT, COLD_START_COUNT, REGISTRY, REQUEST_COUNT, REQUEST_LATENCY
+from serving.metrics import (
+    CACHE_HIT_COUNT,
+    COLD_START_COUNT,
+    REGISTRY,
+    REQUEST_COUNT,
+    REQUEST_LATENCY,
+)
 
 console = Console()
 state = AppState()

@@ -29,7 +29,6 @@ import math
 from pathlib import Path
 
 import mlflow
-import numpy as np
 import pandas as pd
 import torch
 from rich.console import Console
@@ -79,7 +78,10 @@ def _expand_prefixes(
     for c0 in top_codes[0]:
         try_prefix((c0,) + tuple(top_codes[lvl][0] for lvl in range(1, num_levels)))
     for c1 in top_codes[1]:
-        try_prefix((top_codes[0][0], c1) + tuple(top_codes[lvl][0] for lvl in range(2, num_levels)))
+        try_prefix(
+            (top_codes[0][0], c1)
+            + tuple(top_codes[lvl][0] for lvl in range(2, num_levels))
+        )
 
     return candidates[:top_k]
 
@@ -99,7 +101,10 @@ def _get_predicted_prefixes(
     for c0 in top_codes[0]:
         prefixes.add((c0,) + tuple(top_codes[lvl][0] for lvl in range(1, num_levels)))
     for c1 in top_codes[1]:
-        prefixes.add((top_codes[0][0], c1) + tuple(top_codes[lvl][0] for lvl in range(2, num_levels)))
+        prefixes.add(
+            (top_codes[0][0], c1)
+            + tuple(top_codes[lvl][0] for lvl in range(2, num_levels))
+        )
     return prefixes
 
 
@@ -122,10 +127,14 @@ def evaluate(k: int = 10, top_per_level: int = 8) -> dict[str, float]:
         max_len=cfg["max_len"],
         dropout=0.0,
     ).to(device)
-    model.load_state_dict(torch.load(SASREC_WEIGHTS, map_location=device, weights_only=True))
+    model.load_state_dict(
+        torch.load(SASREC_WEIGHTS, map_location=device, weights_only=True)
+    )
     model.eval()
 
-    _, _, test_ds = load_dataset(SEQUENCES, SID_PATH, cfg["max_len"], num_levels=num_levels)
+    _, _, test_ds = load_dataset(
+        SEQUENCES, SID_PATH, cfg["max_len"], num_levels=num_levels
+    )
     store = ItemStore()
 
     console.print(f"[bold]Evaluating on {len(test_ds):,} test users  K={k}[/bold]")
@@ -157,8 +166,8 @@ def evaluate(k: int = 10, top_per_level: int = 8) -> dict[str, float]:
 
     for i in range(n_users):
         inp, _, mask = test_ds[i]
-        inp = inp.unsqueeze(0).to(device)   # (1, T, L)
-        mask = mask.unsqueeze(0).to(device) # (1, T)
+        inp = inp.unsqueeze(0).to(device)  # (1, T, L)
+        mask = mask.unsqueeze(0).to(device)  # (1, T)
 
         logits = model(inp, mask)
 
@@ -167,7 +176,9 @@ def evaluate(k: int = 10, top_per_level: int = 8) -> dict[str, float]:
 
         # Prefix3 recall: does the model's beam include the target's (c0,c1,c2) cluster?
         if gt_codes is not None:
-            predicted_prefixes = _get_predicted_prefixes(logits, num_levels, top_per_level)
+            predicted_prefixes = _get_predicted_prefixes(
+                logits, num_levels, top_per_level
+            )
             if gt_codes in predicted_prefixes:
                 prefix_hits += 1
 
@@ -213,7 +224,9 @@ def run(k: int = 10, gate: bool = False) -> None:
         if baseline_run is None:
             # First eval — write current value as baseline
             mlflow.set_tag(baseline_tag, str(current_recall))
-            console.print(f"[yellow]First eval run — baseline set to {current_recall:.4f}[/yellow]")
+            console.print(
+                f"[yellow]First eval run — baseline set to {current_recall:.4f}[/yellow]"
+            )
         else:
             baseline_val = float(baseline_run)
             passed = current_recall >= baseline_val * 0.95  # 5% regression tolerance
@@ -253,7 +266,11 @@ def _get_latest_baseline(tag_key: str) -> str | None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--k", type=int, default=10, help="Cutoff for Recall@K and NDCG@K")
-    parser.add_argument("--gate", action="store_true", help="Fail if Recall@K regresses vs baseline")
+    parser.add_argument(
+        "--k", type=int, default=10, help="Cutoff for Recall@K and NDCG@K"
+    )
+    parser.add_argument(
+        "--gate", action="store_true", help="Fail if Recall@K regresses vs baseline"
+    )
     args = parser.parse_args()
     run(k=args.k, gate=args.gate)

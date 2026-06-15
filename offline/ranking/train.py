@@ -46,7 +46,7 @@ CONFIG = {
     "lr": 1e-3,
     "batch_size": 512,
     "epochs": 20,
-    "neg_per_pos": 1,   # negative samples per positive example
+    "neg_per_pos": 1,  # negative samples per positive example
 }
 
 console = Console()
@@ -106,7 +106,7 @@ def train(cfg: dict = CONFIG) -> None:
     seqs_df = pd.read_parquet(SEQUENCES)
     sequences = seqs_df["item_ids"].tolist()
 
-    console.print(f"[bold]Building ranking dataset[/bold]")
+    console.print("[bold]Building ranking dataset[/bold]")
     ds = RankingDataset(sequences, id_to_emb, item_ids, cfg["neg_per_pos"])
     console.print(f"  {len(ds):,} training examples")
 
@@ -117,7 +117,9 @@ def train(cfg: dict = CONFIG) -> None:
 
     model = Ranker(embedding_dim=embedding_dim, hidden_dim=cfg["hidden_dim"]).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=0.01)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg["epochs"])
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=cfg["epochs"]
+    )
 
     mlflow.set_tracking_uri(MLFLOW_URI)
     with mlflow.start_run(run_name="ranker"):

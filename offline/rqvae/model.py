@@ -36,7 +36,9 @@ class VectorQuantizer(nn.Module):
         self.codebook = nn.Embedding(num_codes, code_dim)
         nn.init.uniform_(self.codebook.weight, -1 / num_codes, 1 / num_codes)
 
-    def forward(self, z: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(
+        self, z: torch.Tensor
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
         Args
             z: (B, D) encoder output or residual from previous level
@@ -54,15 +56,14 @@ class VectorQuantizer(nn.Module):
             - 2 * z @ self.codebook.weight.T
             + self.codebook.weight.pow(2).sum(dim=-1)
         )
-        indices = dists.argmin(dim=-1)           # (B,)
-        z_q = self.codebook(indices)             # (B, D) — no gradient through here
+        indices = dists.argmin(dim=-1)  # (B,)
+        z_q = self.codebook(indices)  # (B, D) — no gradient through here
 
         # Commitment loss:
         #   encoder_loss  = ||z - sg(z_q)||^2   encoder commits to the codebook
         #   codebook_loss = ||sg(z) - z_q||^2   codebook moves toward encoder output
-        loss = (
-            self.commitment_cost * F.mse_loss(z_q.detach(), z)
-            + F.mse_loss(z_q, z.detach())
+        loss = self.commitment_cost * F.mse_loss(z_q.detach(), z) + F.mse_loss(
+            z_q, z.detach()
         )
 
         # Straight-through estimator: copy gradient of z_q_st to z
@@ -109,12 +110,16 @@ class RQVAE(nn.Module):
             nn.GELU(),
             nn.Linear(hidden_dim * 2, input_dim),
         )
-        self.quantizers = nn.ModuleList([
-            VectorQuantizer(num_codes, hidden_dim, commitment_cost)
-            for _ in range(num_levels)
-        ])
+        self.quantizers = nn.ModuleList(
+            [
+                VectorQuantizer(num_codes, hidden_dim, commitment_cost)
+                for _ in range(num_levels)
+            ]
+        )
 
-    def encode(self, x: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor], torch.Tensor]:
+    def encode(
+        self, x: torch.Tensor
+    ) -> tuple[torch.Tensor, list[torch.Tensor], torch.Tensor]:
         """Encode embeddings to semantic IDs (inference + training).
 
         Returns
@@ -140,7 +145,9 @@ class RQVAE(nn.Module):
         quantized_sum = torch.stack(quantized_st_list, dim=0).sum(dim=0)  # (B, D)
         return quantized_sum, codes, commit_loss
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, list[torch.Tensor], torch.Tensor]:
+    def forward(
+        self, x: torch.Tensor
+    ) -> tuple[torch.Tensor, list[torch.Tensor], torch.Tensor]:
         """Training forward pass.
 
         Returns

@@ -48,7 +48,7 @@ MLFLOW_URI = "http://localhost:5001"
 
 CONFIG = {
     "hidden_dim": 128,
-    "num_codes": 32,   # 32^3 = 32,768 possible 3-tuples for 1,693 items — avoids collapse
+    "num_codes": 32,  # 32^3 = 32,768 possible 3-tuples for 1,693 items — avoids collapse
     "num_levels": 3,
     "commitment_cost": 2.0,  # higher value forces codebook spread; 0.25 collapses on small catalogs
     "lr": 3e-4,
@@ -116,7 +116,9 @@ def train(cfg: dict = CONFIG) -> None:
     ).to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg["lr"])
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg["epochs"])
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=cfg["epochs"]
+    )
 
     loader = DataLoader(
         TensorDataset(embeddings), batch_size=cfg["batch_size"], shuffle=True
@@ -146,7 +148,9 @@ def train(cfg: dict = CONFIG) -> None:
             )
             residual = residual - assigned.cpu().numpy()
             used = len(set(km.labels_))
-            console.print(f"  level {level}: {used}/{cfg['num_codes']} codes used after k-means init")
+            console.print(
+                f"  level {level}: {used}/{cfg['num_codes']} codes used after k-means init"
+            )
 
     mlflow.set_tracking_uri(MLFLOW_URI)
     with mlflow.start_run(run_name="rqvae"):
@@ -166,7 +170,9 @@ def train(cfg: dict = CONFIG) -> None:
             scheduler.step()
             avg_loss = total_loss / len(embeddings)
             if epoch % 10 == 0 or epoch == 1:
-                console.print(f"  epoch {epoch:3d}/{cfg['epochs']}  loss={avg_loss:.5f}")
+                console.print(
+                    f"  epoch {epoch:3d}/{cfg['epochs']}  loss={avg_loss:.5f}"
+                )
                 mlflow.log_metric("loss", avg_loss, step=epoch)
 
         # ── Generate 3-level codes ────────────────────────────────────────────
@@ -182,9 +188,12 @@ def train(cfg: dict = CONFIG) -> None:
         console.print("Resolving collisions with sequential 4th token...")
         codes_4 = resolve_collisions(codes_3)  # (N, 4) — guaranteed unique
 
-        assert len({tuple(r) for r in codes_4}) == len(codes_4), \
+        assert len({tuple(r) for r in codes_4}) == len(codes_4), (
             "resolve_collisions did not produce unique IDs"
-        console.print(f"[green]All {len(codes_4):,} items have unique 4-token semantic IDs[/green]")
+        )
+        console.print(
+            f"[green]All {len(codes_4):,} items have unique 4-token semantic IDs[/green]"
+        )
 
         # ── Save artifacts ────────────────────────────────────────────────────
         torch.save(model.state_dict(), OUT_DIR / "model.pt")

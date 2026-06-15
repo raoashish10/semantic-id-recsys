@@ -17,7 +17,6 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from rich.console import Console
-from rich.progress import track
 
 from offline.sasrec.dataset import load_dataset
 from offline.sasrec.model import SASRec
@@ -44,8 +43,8 @@ console = Console()
 
 def cross_entropy_loss(
     logits_per_level: list[torch.Tensor],  # L × (B, T, num_codes)
-    targets: torch.Tensor,                 # (B, T, L)
-    padding_mask: torch.Tensor,            # (B, T) True = padding
+    targets: torch.Tensor,  # (B, T, L)
+    padding_mask: torch.Tensor,  # (B, T) True = padding
 ) -> torch.Tensor:
     """Cross-entropy averaged over non-padding positions and all levels."""
     B, T, L = targets.shape
@@ -67,7 +66,9 @@ def cross_entropy_loss(
 
 
 @torch.no_grad()
-def evaluate(model: SASRec, loader: DataLoader, device: torch.device) -> dict[str, float]:
+def evaluate(
+    model: SASRec, loader: DataLoader, device: torch.device
+) -> dict[str, float]:
     """Compute loss and Hit@10 on the validation set."""
     model.eval()
     total_loss, total_hit, total_count = 0.0, 0.0, 0
@@ -110,8 +111,12 @@ def train(cfg: dict = CONFIG) -> None:
     # sequential disambiguator). num_levels describes the trained RQ-VAE model (3).
     num_sid_tokens = rq_cfg.get("num_sid_tokens", rq_cfg["num_levels"])
 
-    console.print(f"[bold]Loading datasets[/bold]  (num_codes={num_codes}, num_sid_tokens={num_sid_tokens})")
-    train_ds, val_ds, _ = load_dataset(SEQUENCES, SID_PATH, cfg["max_len"], num_levels=num_sid_tokens)
+    console.print(
+        f"[bold]Loading datasets[/bold]  (num_codes={num_codes}, num_sid_tokens={num_sid_tokens})"
+    )
+    train_ds, val_ds, _ = load_dataset(
+        SEQUENCES, SID_PATH, cfg["max_len"], num_levels=num_sid_tokens
+    )
     console.print(f"  train={len(train_ds):,}  val={len(val_ds):,}")
 
     train_loader = DataLoader(train_ds, batch_size=cfg["batch_size"], shuffle=True)
@@ -131,7 +136,9 @@ def train(cfg: dict = CONFIG) -> None:
     ).to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=0.01)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=cfg["epochs"])
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=cfg["epochs"]
+    )
 
     mlflow.set_tracking_uri(MLFLOW_URI)
     with mlflow.start_run(run_name="sasrec"):
@@ -165,7 +172,10 @@ def train(cfg: dict = CONFIG) -> None:
                 )
                 safe_metrics = {k.replace("@", "_at_"): v for k, v in metrics.items()}
                 mlflow.log_metrics(
-                    {"train_loss": avg_loss, **{f"val_{k}": v for k, v in safe_metrics.items()}},
+                    {
+                        "train_loss": avg_loss,
+                        **{f"val_{k}": v for k, v in safe_metrics.items()},
+                    },
                     step=epoch,
                 )
                 if metrics["hit@10"] > best_hit:

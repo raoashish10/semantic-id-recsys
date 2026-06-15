@@ -23,11 +23,26 @@ from locust import HttpUser, between, task
 # ── Sample data pulled from a pipeline run (replace with actual IDs) ──────────
 # Warm items: must exist in the Redis catalog (run `make index` first)
 CATALOG_SAMPLE = [
-    "B00OXDWFG2", "B01N7A5AGF", "B010U82WRU", "B08VF373NX",
-    "B07YHGZ37K", "B00W10JW1A", "B09SPPL7S4", "B09ZP8TK87",
-    "B0B87SH493", "B08ZYKQ3D3", "B07SV4HTMC", "B08NJ5BTWG",
-    "B081D8D5YV", "B007QG7G3U", "B08MCT8C27", "B0C4LR3NZT",
-    "B08L3J4FB9", "B0722HKRHH", "B004N7B4IS", "B08XMHSM5B",
+    "B00OXDWFG2",
+    "B01N7A5AGF",
+    "B010U82WRU",
+    "B08VF373NX",
+    "B07YHGZ37K",
+    "B00W10JW1A",
+    "B09SPPL7S4",
+    "B09ZP8TK87",
+    "B0B87SH493",
+    "B08ZYKQ3D3",
+    "B07SV4HTMC",
+    "B08NJ5BTWG",
+    "B081D8D5YV",
+    "B007QG7G3U",
+    "B08MCT8C27",
+    "B0C4LR3NZT",
+    "B08L3J4FB9",
+    "B0722HKRHH",
+    "B004N7B4IS",
+    "B08XMHSM5B",
 ]
 
 # Known user_ids that have precomputed recs (from `make precompute`)
@@ -41,6 +56,7 @@ class CachedUser(HttpUser):
     """Simulates a returning user whose recs are precomputed in Redis.
     Expected latency: <5ms (pure Redis GET, no model inference).
     """
+
     weight = 6
     wait_time = between(0.1, 0.5)
 
@@ -64,6 +80,7 @@ class WarmUser(HttpUser):
     """Simulates a user with 4-5 recent items triggering SASRec inference.
     Expected latency: 20-150ms (depends on beam search + Redis lookups).
     """
+
     weight = 3
     wait_time = between(0.5, 2.0)
 
@@ -89,6 +106,7 @@ class ColdUser(HttpUser):
     """Simulates a new user with a single item — cold-start prefix fallback.
     Expected latency: 5-30ms (SRANDMEMBER Redis lookup, no inference).
     """
+
     weight = 1
     wait_time = between(1.0, 3.0)
 
@@ -97,7 +115,11 @@ class ColdUser(HttpUser):
         session = [random.choice(CATALOG_SAMPLE)]
         with self.client.post(
             "/recommend",
-            json={"user_id": f"new_user_{random.randint(1, 99999)}", "session": session, "top_k": 10},
+            json={
+                "user_id": f"new_user_{random.randint(1, 99999)}",
+                "session": session,
+                "top_k": 10,
+            },
             catch_response=True,
         ) as resp:
             if resp.status_code != 200:
@@ -106,5 +128,11 @@ class ColdUser(HttpUser):
                 body = resp.json()
                 if body.get("cache_hit"):
                     resp.success()
-                elif body.get("cold_start_method") not in ("prefix_fallback", "intent", None):
-                    resp.failure(f"Unexpected cold_start_method: {body.get('cold_start_method')}")
+                elif body.get("cold_start_method") not in (
+                    "prefix_fallback",
+                    "intent",
+                    None,
+                ):
+                    resp.failure(
+                        f"Unexpected cold_start_method: {body.get('cold_start_method')}"
+                    )

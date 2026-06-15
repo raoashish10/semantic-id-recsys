@@ -11,7 +11,6 @@ the model sees real items at the right end and padding at the left.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import numpy as np
@@ -77,9 +76,9 @@ class SeqDataset(Dataset):
 
         if T > 0:
             actual = min(T, self.max_len)
-            inp_padded[pad_len:pad_len + actual] = inp[-actual:]
-            tgt_padded[pad_len:pad_len + actual] = tgt[-actual:]
-            padding_mask[pad_len:pad_len + actual] = False
+            inp_padded[pad_len : pad_len + actual] = inp[-actual:]
+            tgt_padded[pad_len : pad_len + actual] = tgt[-actual:]
+            padding_mask[pad_len : pad_len + actual] = False
 
         return (
             torch.tensor(inp_padded, dtype=torch.long),  # (max_len, L)

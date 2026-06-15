@@ -1,7 +1,6 @@
 """Tests for RQ-VAE collision resolution logic."""
 
 import numpy as np
-import pytest
 
 from offline.rqvae.train import resolve_collisions
 
@@ -35,7 +34,9 @@ def test_output_is_always_unique():
     codes = rng.integers(0, 4, size=(50, 3))
     out = resolve_collisions(codes)
     tuples = [tuple(row) for row in out]
-    assert len(set(tuples)) == len(tuples), "resolve_collisions must produce unique 4-tuples"
+    assert len(set(tuples)) == len(tuples), (
+        "resolve_collisions must produce unique 4-tuples"
+    )
 
 
 def test_first_three_cols_unchanged():

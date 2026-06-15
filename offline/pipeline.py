@@ -27,12 +27,24 @@ from rich.console import Console
 
 console = Console()
 
-STEPS = ["download", "preprocess", "embeddings", "rqvae", "sasrec", "ann", "ranking", "evaluate", "index", "precompute"]
+STEPS = [
+    "download",
+    "preprocess",
+    "embeddings",
+    "rqvae",
+    "sasrec",
+    "ann",
+    "ranking",
+    "evaluate",
+    "index",
+    "precompute",
+]
 
 
 @task(name="download")
 def download_task() -> None:
     from data.download import download_meta, download_interactions
+
     download_meta()
     download_interactions()
 
@@ -40,7 +52,7 @@ def download_task() -> None:
 @task(name="preprocess")
 def preprocess_task() -> None:
     from data.preprocess import build_items, build_sequences
-    import pandas as pd
+
     processed = Path("data/processed")
     processed.mkdir(parents=True, exist_ok=True)
     build_items().to_parquet(processed / "items.parquet", index=False)
@@ -50,51 +62,58 @@ def preprocess_task() -> None:
 @task(name="embeddings")
 def embeddings_task() -> None:
     from offline.embeddings.generate import generate
+
     generate()
 
 
 @task(name="rqvae")
 def rqvae_task() -> None:
     from offline.rqvae.train import train
+
     train()
 
 
 @task(name="sasrec")
 def sasrec_task() -> None:
     from offline.sasrec.train import train
+
     train()
 
 
 @task(name="ann")
 def ann_task() -> None:
     from offline.ann.build import build
+
     build()
 
 
 @task(name="ranking")
 def ranking_task() -> None:
     from offline.ranking.train import train
+
     train()
 
 
 @task(name="precompute")
 def precompute_task() -> None:
     from offline.precompute import precompute
+
     precompute()
 
 
 @task(name="evaluate")
 def evaluate_task() -> None:
     from offline.evaluate import run
+
     run(k=10, gate=True)
 
 
 @task(name="index")
 def index_task() -> None:
     """Populate Redis with:
-      - semantic ID ↔ item_id mappings  (for SASRec beam search path)
-      - prefix:{c0}:{c1} sets           (for cold-start fallback)
-      - item embeddings in feature store (for FAISS audit use)
+    - semantic ID ↔ item_id mappings  (for SASRec beam search path)
+    - prefix:{c0}:{c1} sets           (for cold-start fallback)
+    - item embeddings in feature store (for FAISS audit use)
     """
     import json
     import numpy as np
@@ -119,13 +138,19 @@ def index_task() -> None:
         item_id = row["item_id"]
         title = meta.get(item_id, {}).get("title", "")
         store.set_item(item_id, codes, title)
-        store.add_to_prefix_index(item_id, codes)    # prefix:{c0}:{c1}   — cold-start (c0,c1)
-        store.add_to_prefix3_index(item_id, codes)   # prefix3:{c0}:{c1}:{c2} — SASRec beam search
+        store.add_to_prefix_index(
+            item_id, codes
+        )  # prefix:{c0}:{c1}   — cold-start (c0,c1)
+        store.add_to_prefix3_index(
+            item_id, codes
+        )  # prefix3:{c0}:{c1}:{c2} — SASRec beam search
         if item_id in id_to_emb:
             store.set_item_features(item_id, id_to_emb[item_id])
         count += 1
 
-    console.print(f"[green]Indexed {count:,} items (semantic IDs + feature store + prefix index) in Redis[/green]")
+    console.print(
+        f"[green]Indexed {count:,} items (semantic IDs + feature store + prefix index) in Redis[/green]"
+    )
 
 
 @flow(name="recsys-offline-pipeline")

@@ -31,8 +31,8 @@ REC_TTL = int(os.getenv("REC_TTL_SECONDS", 86400))  # 24 hours
 
 class ItemStore:
     def __init__(self, url: str = REDIS_URL):
-        self._r = redis.from_url(url, decode_responses=True)   # strings / JSON
-        self._rb = redis.from_url(url, decode_responses=False) # binary blobs
+        self._r = redis.from_url(url, decode_responses=True)  # strings / JSON
+        self._rb = redis.from_url(url, decode_responses=False)  # binary blobs
 
     # ── Write ─────────────────────────────────────────────────────────────────
 
@@ -95,7 +95,9 @@ class ItemStore:
         """Add item_id to the (c0, c1, c2) prefix set — used by SASRec beam search."""
         self._r.sadd(f"prefix3:{codes[0]}:{codes[1]}:{codes[2]}", item_id)
 
-    def get_items_by_prefix3(self, c0: int, c1: int, c2: int, limit: int = 50) -> list[str]:
+    def get_items_by_prefix3(
+        self, c0: int, c1: int, c2: int, limit: int = 50
+    ) -> list[str]:
         """Return up to `limit` random item_ids sharing the (c0, c1, c2) prefix."""
         return self._r.srandmember(f"prefix3:{c0}:{c1}:{c2}", limit) or []
 

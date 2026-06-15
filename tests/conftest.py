@@ -8,7 +8,6 @@ Provides:
 
 from __future__ import annotations
 
-import json
 from unittest.mock import MagicMock
 
 import fakeredis
@@ -18,10 +17,10 @@ import torch
 from fastapi.testclient import TestClient
 
 from serving.store.redis_client import ItemStore
-from serving.models import RecommendedItem
 
 
 # ── Fake Redis-backed ItemStore ───────────────────────────────────────────────
+
 
 @pytest.fixture()
 def fake_redis():
@@ -64,6 +63,7 @@ def populated_store(fake_store):
 
 
 # ── Mocked AppState for API tests ─────────────────────────────────────────────
+
 
 @pytest.fixture()
 def mock_state(populated_store):

@@ -6,11 +6,9 @@ needed. The mock state is defined in conftest.py.
 
 from __future__ import annotations
 
-import pytest
-from fastapi.testclient import TestClient
-
 
 # ── /health ───────────────────────────────────────────────────────────────────
+
 
 def test_health_ok(api_client):
     resp = api_client.get("/health")
@@ -23,11 +21,14 @@ def test_health_ok(api_client):
 
 # ── /recommend — cache hit path ───────────────────────────────────────────────
 
+
 def test_recommend_cache_hit(api_client, mock_state):
     cached = [{"item_id": "ITEM_A", "title": "Product A", "semantic_id": [1, 2, 3, 0]}]
     mock_state.store.get_user_recs.return_value = cached
 
-    resp = api_client.post("/recommend", json={"user_id": "USER_1", "session": [], "top_k": 5})
+    resp = api_client.post(
+        "/recommend", json={"user_id": "USER_1", "session": [], "top_k": 5}
+    )
     assert resp.status_code == 200
     body = resp.json()
     assert body["cache_hit"] is True
@@ -35,6 +36,7 @@ def test_recommend_cache_hit(api_client, mock_state):
 
 
 # ── /recommend — cold start prefix fallback ───────────────────────────────────
+
 
 def test_recommend_cold_start_prefix_fallback(api_client, mock_state):
     mock_state.store.get_user_recs.return_value = None  # cache miss
@@ -64,6 +66,7 @@ def test_recommend_empty_session_no_user_returns_422(api_client, mock_state):
 
 # ── /recommend — warm user SASRec path ───────────────────────────────────────
 
+
 def test_recommend_warm_path(api_client, mock_state):
     mock_state.store.get_user_recs.return_value = None
 
@@ -85,7 +88,9 @@ def test_recommend_session_items_not_in_results(api_client, mock_state):
     resp = api_client.post("/recommend", json={"session": session, "top_k": 10})
     assert resp.status_code == 200
     returned_ids = {r["item_id"] for r in resp.json()["recommendations"]}
-    assert returned_ids.isdisjoint(set(session)), "Session items must not appear in recs"
+    assert returned_ids.isdisjoint(set(session)), (
+        "Session items must not appear in recs"
+    )
 
 
 def test_recommend_all_unknown_session_returns_422(api_client, mock_state):
@@ -100,6 +105,7 @@ def test_recommend_all_unknown_session_returns_422(api_client, mock_state):
 
 
 # ── input validation ──────────────────────────────────────────────────────────
+
 
 def test_recommend_top_k_out_of_range(api_client):
     resp = api_client.post("/recommend", json={"session": [], "top_k": 0})

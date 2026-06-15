@@ -22,7 +22,7 @@ MIN_INTERACTIONS = 3  # 3-core filter: drop users/items with fewer interactions
 # All_Beauty is a sparse category (75th-percentile user has 1 interaction).
 # 5-core collapses the dataset to ~50 users; 3-core keeps 1,500+ users
 # all with ≥3 interactions, which is the minimum the dataset loader needs.
-MIN_RATING = 4        # only treat ratings >= 4 as positive interactions
+MIN_RATING = 4  # only treat ratings >= 4 as positive interactions
 
 
 def build_items() -> pd.DataFrame:
@@ -37,7 +37,9 @@ def build_items() -> pd.DataFrame:
             desc = " ".join(desc_raw) if isinstance(desc_raw, list) else str(desc_raw)
             if not title:
                 continue
-            rows.append({"item_id": r["parent_asin"], "title": title, "description": desc})
+            rows.append(
+                {"item_id": r["parent_asin"], "title": title, "description": desc}
+            )
 
     df = pd.DataFrame(rows).drop_duplicates("item_id").reset_index(drop=True)
     # Concatenate title + description as the text field for embedding
@@ -52,12 +54,14 @@ def build_sequences() -> pd.DataFrame:
     with (RAW / "interactions.jsonl").open() as f:
         for line in f:
             r = json.loads(line)
-            rows.append({
-                "user_id": r["user_id"],
-                "item_id": r["parent_asin"],
-                "rating": float(r.get("rating", 0)),
-                "timestamp": r["timestamp"],
-            })
+            rows.append(
+                {
+                    "user_id": r["user_id"],
+                    "item_id": r["parent_asin"],
+                    "rating": float(r.get("rating", 0)),
+                    "timestamp": r["timestamp"],
+                }
+            )
 
     df = pd.DataFrame(rows)
 
@@ -65,7 +69,9 @@ def build_sequences() -> pd.DataFrame:
     # recommend similar items
     before = len(df)
     df = df[df["rating"] >= MIN_RATING]
-    console.print(f"  {before - len(df):,} interactions dropped (rating < {MIN_RATING})")
+    console.print(
+        f"  {before - len(df):,} interactions dropped (rating < {MIN_RATING})"
+    )
 
     # 5-core filter: iteratively drop until all users and items meet the threshold
     while True:
@@ -86,7 +92,9 @@ def build_sequences() -> pd.DataFrame:
         .reset_index()
         .rename(columns={"item_id": "item_ids"})
     )
-    console.print(f"  {len(sequences):,} users, {df['item_id'].nunique():,} items after {MIN_INTERACTIONS}-core filter")
+    console.print(
+        f"  {len(sequences):,} users, {df['item_id'].nunique():,} items after {MIN_INTERACTIONS}-core filter"
+    )
     return sequences
 
 

@@ -28,8 +28,8 @@ SEQUENCES = Path("data/processed/sequences.parquet")
 SASREC_CFG = Path("artifacts/sasrec/config.json")
 SASREC_WEIGHTS = Path("artifacts/sasrec/model.pt")
 
-TOP_K = 50   # precompute more than typical top_k so the cache stays useful
-             # even if the caller asks for top_k=20 or top_k=50
+TOP_K = 50  # precompute more than typical top_k so the cache stays useful
+# even if the caller asks for top_k=20 or top_k=50
 BATCH_SIZE = 128
 
 console = Console()
@@ -64,11 +64,15 @@ def precompute(top_k: int = TOP_K, ttl: int = REC_TTL) -> None:
 
     # ── Load user sequences ───────────────────────────────────────────────────
     seqs_df = pd.read_parquet(SEQUENCES)
-    console.print(f"[bold]Precomputing recs for {len(seqs_df):,} users[/bold]  top_k={top_k}  ttl={ttl}s")
+    console.print(
+        f"[bold]Precomputing recs for {len(seqs_df):,} users[/bold]  top_k={top_k}  ttl={ttl}s"
+    )
 
     hits, skipped = 0, 0
 
-    for _, row in track(seqs_df.iterrows(), total=len(seqs_df), description="Precomputing"):
+    for _, row in track(
+        seqs_df.iterrows(), total=len(seqs_df), description="Precomputing"
+    ):
         user_id = row["user_id"]
         session = row["item_ids"]
 
