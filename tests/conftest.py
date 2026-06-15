@@ -91,10 +91,12 @@ def mock_state(populated_store):
 @pytest.fixture()
 def api_client(mock_state):
     """TestClient with mock state injected — no real model or Redis needed."""
-    from serving.api.main import app
+    from unittest.mock import patch
 
-    original = getattr(app.state, "recsys", None)
-    app.state.recsys = mock_state
-    with TestClient(app, raise_server_exceptions=True) as client:
-        yield client
-    app.state.recsys = original
+    from serving.api import main as api_main
+
+    # Patch state.load so the lifespan startup doesn't try to read model.pt or Redis
+    with patch.object(api_main.state, "load"):
+        api_main.app.state.recsys = mock_state
+        with TestClient(api_main.app, raise_server_exceptions=True) as client:
+            yield client
