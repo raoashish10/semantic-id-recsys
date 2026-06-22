@@ -12,8 +12,6 @@ Steps
   embeddings → item_embeddings.npy
   rqvae      → semantic_ids.parquet + model.pt
   sasrec     → sasrec model.pt
-  ann        → FAISS index + item_ids.json
-  ranking    → MLP ranker model.pt
   evaluate   → Recall@K / NDCG@K logged to MLflow; fails if below baseline (gate)
   index      → Redis: semantic IDs + feature store + prefix index populated
   precompute → recs:{user_id} keys written to Redis via SASRec beam search
@@ -33,8 +31,6 @@ STEPS = [
     "embeddings",
     "rqvae",
     "sasrec",
-    "ann",
-    "ranking",
     "evaluate",
     "index",
     "precompute",
@@ -76,20 +72,6 @@ def rqvae_task() -> None:
 @task(name="sasrec")
 def sasrec_task() -> None:
     from offline.sasrec.train import train
-
-    train()
-
-
-@task(name="ann")
-def ann_task() -> None:
-    from offline.ann.build import build
-
-    build()
-
-
-@task(name="ranking")
-def ranking_task() -> None:
-    from offline.ranking.train import train
 
     train()
 
@@ -170,10 +152,6 @@ def pipeline(start_from: str = "download") -> None:
         rqvae_task()
     if "sasrec" in active:
         sasrec_task()
-    if "ann" in active:
-        ann_task()
-    if "ranking" in active:
-        ranking_task()
     if "evaluate" in active:
         evaluate_task()
     if "index" in active:

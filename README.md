@@ -77,15 +77,6 @@ product. No retraining required.
 
 ---
 
-## RQ-VAE Auditing (FAISS)
-
-The FAISS index (`artifacts/ann/index.faiss`) is built from raw sentence-transformer embeddings and is **not used in serving**. Its purpose is to validate that the RQ-VAE learned meaningful quantization:
-
-> If the RQ-VAE is working correctly, items that are nearest neighbors in continuous embedding space should share semantic ID prefixes.
-
-Use `notebooks/audit_rqvae.ipynb` (or `serving/retrieval.py` directly) to query the index and compare prefix overlap between a query item and its nearest neighbors. A high prefix-match rate indicates the discrete codebook tree mirrors the continuous embedding structure.
-
----
 
 ## Performance
 
@@ -118,18 +109,16 @@ make load-test   # opens tests/load/report.html after 60s
 ## Offline pipeline
 
 ```
-download → preprocess → embeddings → rqvae → sasrec → ann → ranking → evaluate → index → precompute
+download → preprocess → embeddings → rqvae → sasrec → evaluate → index → precompute
 ```
 
 | Step | Output | Where |
 |---|---|---|
 | `download` | Raw Amazon Reviews 2023 (All_Beauty) | `data/raw/` |
-| `preprocess` | `items.parquet`, `sequences.parquet` (5-core filtered) | `data/processed/` |
+| `preprocess` | `items.parquet`, `sequences.parquet` (3-core filtered) | `data/processed/` |
 | `embeddings` | `item_embeddings.npy` via all-MiniLM-L6-v2 | `artifacts/embeddings/` |
 | `rqvae` | `semantic_ids.parquet`, `model.pt` | `artifacts/rqvae/` |
 | `sasrec` | `model.pt` (best Hit@10 checkpoint) | `artifacts/sasrec/` |
-| `ann` | `index.faiss` — audit use only | `artifacts/ann/` |
-| `ranking` | `model.pt` — offline artifact, not loaded in serving | `artifacts/ranking/` |
 | `index` | Redis: `item:*`, `sid:*`, `feat:*`, `prefix:*` keys | Redis |
 | `evaluate` | Recall@K, NDCG@K, Prefix3-Recall@K → MLflow; fails if regression vs. baseline | MLflow |
 | `precompute` | Redis: `recs:{user_id}` keys with 24h TTL | Redis |
@@ -227,7 +216,6 @@ make pipeline
 
 # Or step by step
 make data && make embeddings && make rqvae && make sasrec
-make ann && make ranking
 make evaluate     # Recall@K + NDCG@K logged to MLflow; fails if below baseline
 make index        # populate Redis: semantic IDs + prefix index + feature store
 make precompute   # beam search over all users → recs:{user_id} keys

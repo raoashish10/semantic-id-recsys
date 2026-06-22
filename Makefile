@@ -1,4 +1,4 @@
-.PHONY: install data embeddings rqvae sasrec ann ranking evaluate index precompute pipeline serve up down fmt test load-test docker-build
+.PHONY: install data embeddings rqvae sasrec evaluate index precompute pipeline serve up down fmt test load-test docker-build
 
 install:
 	pip install -e ".[dev]"
@@ -17,12 +17,6 @@ rqvae:
 
 sasrec:
 	python -m offline.sasrec.train
-
-ann:
-	python -m offline.ann.build
-
-ranking:
-	python -m offline.ranking.train
 
 evaluate:
 	python -m offline.evaluate --gate
