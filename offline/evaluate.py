@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 from pathlib import Path
 
 import mlflow
@@ -41,7 +42,7 @@ SEQUENCES = Path("data/processed/sequences.parquet")
 SID_PATH = Path("artifacts/rqvae/semantic_ids.parquet")
 SASREC_CFG = Path("artifacts/sasrec/config.json")
 SASREC_WEIGHTS = Path("artifacts/sasrec/model.pt")
-MLFLOW_URI = "http://localhost:5001"
+MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5001")
 
 console = Console()
 

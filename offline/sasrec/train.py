@@ -10,6 +10,7 @@ Run: python -m offline.sasrec.train
 """
 
 import json
+import os
 from pathlib import Path
 
 import mlflow
@@ -25,7 +26,7 @@ SEQUENCES = Path("data/processed/sequences.parquet")
 SID_PATH = Path("artifacts/rqvae/semantic_ids.parquet")
 RQ_CFG = Path("artifacts/rqvae/config.json")
 OUT_DIR = Path("artifacts/sasrec")
-MLFLOW_URI = "http://localhost:5001"
+MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5001")
 
 CONFIG = {
     "hidden_dim": 128,
@@ -79,12 +80,14 @@ def evaluate(
         loss = cross_entropy_loss(logits, tgt, mask)
         total_loss += loss.item()
 
-        # Hit@10: check if the true next item's codes are all in the top-10 per level
-        # (simplified: we check the last non-padding position only)
-        seq_lens = (~mask).sum(dim=-1) - 1  # index of last real token
-        for b, last in enumerate(seq_lens):
-            if last < 0:
+        # Hit@10: check if the true next item's codes are all in the top-10 per level.
+        # With left-padding, the last real token is always at position max_len-1.
+        last_pos = inp.shape[1] - 1
+        has_real = (~mask[:, last_pos])  # False if the last position is padding
+        for b in range(inp.shape[0]):
+            if not has_real[b]:
                 continue
+            last = last_pos
             hit = True
             for lvl, level_logits in enumerate(logits):
                 top10 = level_logits[b, last].topk(10).indices
@@ -181,6 +184,9 @@ def train(cfg: dict = CONFIG) -> None:
                 if metrics["hit@10"] > best_hit:
                     best_hit = safe_metrics.get("hit_at_10", metrics["hit@10"])
                     torch.save(model.state_dict(), OUT_DIR / "model.pt")
+        # Always save the final epoch as the best available model
+        if not (OUT_DIR / "model.pt").exists() or best_hit == 0.0:
+            torch.save(model.state_dict(), OUT_DIR / "model.pt")
 
         full_cfg = {
             **cfg,

@@ -7,7 +7,7 @@
   "lr": 0.001,
   "batch_size": 256,
   "epochs": 30,
-  "num_codes": 32,
+  "num_codes": 256,
   "num_levels": 3,
-  "best_hit_at_10": 0.984967320261438
+  "best_hit_at_10": 0.012650772710139464
 }
