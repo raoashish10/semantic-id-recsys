@@ -59,7 +59,7 @@ def beam_recommend(
     inp: torch.Tensor,
     num_levels: int,
     top_k: int,
-    top_per_level: int = 5,
+    top_per_level: int = 32,
     exclude_ids: set[str] | None = None,
 ) -> list[RecommendedItem]:
     """SASRec beam search over semantic ID space → real items.
@@ -102,22 +102,40 @@ def beam_recommend(
                 )
             )
 
-    # Greedy: top-1 at each level
-    try_prefix(tuple(top_codes[lvl][0] for lvl in range(num_levels)))
-
-    # Expand level-0 for broad category diversity
+    # Full grid over top c0 × c1 × c2 (greedy-first ordering)
     for c0 in top_codes[0]:
-        try_prefix((c0,) + tuple(top_codes[lvl][0] for lvl in range(1, num_levels)))
+        for c1 in top_codes[1]:
+            for c2 in top_codes[2]:
+                try_prefix((c0, c1, c2))
+                if len(results) >= top_k:
+                    break
+            if len(results) >= top_k:
+                break
         if len(results) >= top_k:
             break
 
-    # Expand level-1 for within-category diversity
-    for c1 in top_codes[1]:
-        try_prefix(
-            (top_codes[0][0], c1)
-            + tuple(top_codes[lvl][0] for lvl in range(2, num_levels))
-        )
-        if len(results) >= top_k:
-            break
+    # Fallback: prefix2 (c0, c1) lookup if prefix3 grid returned nothing
+    if not results:
+        for c0 in top_codes[0]:
+            for c1 in top_codes[1]:
+                candidates = store.get_items_by_prefix(c0, c1, limit=top_k * 2)
+                for item_id in candidates:
+                    if item_id in seen_items or len(results) >= top_k:
+                        continue
+                    seen_items.add(item_id)
+                    codes = store.get_codes(item_id)
+                    if codes is None:
+                        continue
+                    results.append(
+                        RecommendedItem(
+                            item_id=item_id,
+                            title=store.get_title(item_id),
+                            semantic_id=codes,
+                        )
+                    )
+                if len(results) >= top_k:
+                    break
+            if len(results) >= top_k:
+                break
 
     return results[:top_k]
