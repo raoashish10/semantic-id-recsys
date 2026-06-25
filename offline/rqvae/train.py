@@ -29,6 +29,7 @@ Run: python -m offline.rqvae.train
 """
 
 import json
+import os
 from collections import defaultdict
 from pathlib import Path
 
@@ -44,11 +45,11 @@ from offline.rqvae.model import RQVAE
 
 EMB_DIR = Path("artifacts/embeddings")
 OUT_DIR = Path("artifacts/rqvae")
-MLFLOW_URI = "http://localhost:5001"
+MLFLOW_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5001")
 
 CONFIG = {
     "hidden_dim": 128,
-    "num_codes": 32,  # 32^3 = 32,768 possible 3-tuples for 1,693 items — avoids collapse
+    "num_codes": 256,  # 256^3 = 16M possible 3-tuples for 17K items
     "num_levels": 3,
     "commitment_cost": 2.0,  # higher value forces codebook spread; 0.25 collapses on small catalogs
     "lr": 3e-4,
@@ -160,18 +161,50 @@ def train(cfg: dict = CONFIG) -> None:
         for epoch in range(1, cfg["epochs"] + 1):
             model.train()
             total_loss = 0.0
+            # Track which codes are used this epoch for dead-code revival
+            code_counts = [
+                torch.zeros(cfg["num_codes"], dtype=torch.long, device=device)
+                for _ in range(cfg["num_levels"])
+            ]
             for (batch,) in loader:
                 batch = batch.to(device)
-                _, _, loss = model(batch)
+                _, codes, loss = model(batch)
+                for lvl, idx in enumerate(codes):
+                    code_counts[lvl].scatter_add_(
+                        0, idx, torch.ones_like(idx, dtype=torch.long)
+                    )
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
                 total_loss += loss.item() * len(batch)
             scheduler.step()
+
+            # Dead-code revival: reset unused codebook entries to random encoder outputs
+            model.eval()
+            with torch.no_grad():
+                z_all = model.encoder(embeddings.to(device))
+                residual = z_all
+                for lvl, quantizer in enumerate(model.quantizers):
+                    dead = (code_counts[lvl] == 0).nonzero(as_tuple=True)[0]
+                    if len(dead) > 0:
+                        rand_idx = torch.randperm(len(residual), device=device)[:len(dead)]
+                        quantizer.codebook.weight.data[dead] = residual[rand_idx].detach()
+                    # recompute residual for next level
+                    dists = (
+                        residual.pow(2).sum(-1, keepdim=True)
+                        - 2 * residual @ quantizer.codebook.weight.T
+                        + quantizer.codebook.weight.pow(2).sum(-1)
+                    )
+                    z_q = quantizer.codebook(dists.argmin(-1))
+                    residual = residual - z_q
+            model.train()
+
             avg_loss = total_loss / len(embeddings)
             if epoch % 10 == 0 or epoch == 1:
+                used = [int((c > 0).sum().item()) for c in code_counts]
                 console.print(
                     f"  epoch {epoch:3d}/{cfg['epochs']}  loss={avg_loss:.5f}"
+                    f"  codes used: {used}"
                 )
                 mlflow.log_metric("loss", avg_loss, step=epoch)
 
