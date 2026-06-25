@@ -6,7 +6,6 @@ dataset loading script which datasets>=3.0 no longer supports.
 Run: python -m data.download
 """
 
-import shutil
 from pathlib import Path
 
 import requests
