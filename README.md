@@ -114,7 +114,7 @@ download → preprocess → embeddings → rqvae → sasrec → evaluate → ind
 
 | Step | Output | Where |
 |---|---|---|
-| `download` | Raw Amazon Reviews 2023 (All_Beauty) | `data/raw/` |
+| `download` | Raw Amazon Reviews 2023 (Beauty_and_Personal_Care, first 3M interactions) | `data/raw/` |
 | `preprocess` | `items.parquet`, `sequences.parquet` (3-core filtered) | `data/processed/` |
 | `embeddings` | `item_embeddings.npy` via all-MiniLM-L6-v2 | `artifacts/embeddings/` |
 | `rqvae` | `semantic_ids.parquet`, `model.pt` | `artifacts/rqvae/` |
@@ -181,6 +181,48 @@ When a user has fewer than 3 session items, SASRec's self-attention has too litt
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server base URL |
 | `OLLAMA_MODEL` | `llama3.2` | Ollama model name |
 | `REC_TTL_SECONDS` | `86400` | TTL for precomputed user recs (seconds) |
+
+---
+
+## Interactive demo
+
+`demo.html` is a zero-dependency single-page UI that exercises all three recommendation paths against a live local API.
+
+### Setup
+
+```bash
+# 1. Make sure Redis is running
+make up       # or: docker compose -f infra/docker-compose.yml up -d redis
+
+# 2. Run the offline pipeline (skip if artifacts already exist)
+make pipeline
+
+# 3. Start the serving API
+make serve    # → http://localhost:8000
+```
+
+### Open the demo
+
+```bash
+open demo.html   # macOS — or double-click in Finder / drag to browser
+```
+
+> The demo calls `http://localhost:8000` directly.  
+> The API allows all origins, so opening `demo.html` from the filesystem (`file://`) works without a local HTTP server.
+
+### Scenarios
+
+Click any of the three preset buttons to load a scenario, then hit **Recommend**:
+
+| Button | What it shows | Session |
+|---|---|---|
+| **Cache Hit** | Precomputed recs served from Redis in <5 ms | Nail polish session (`demo_user_nails`) |
+| **Cold Start** | Prefix-based fallback for a 1-item session | Single false eyelash product |
+| **Warm User** | Real-time SASRec beam search | 5-item skincare + makeup routine |
+
+The status bar at the bottom of each result shows which path was taken (`cache_hit` / `cold_start` / `warm`), the server-side latency from the `X-Serving-Latency-Ms` response header, and the cold-start method when applicable.
+
+You can also type any item IDs directly into the session box and experiment freely.
 
 ---
 

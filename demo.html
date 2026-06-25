@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>RecSys Demo Panel</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 24px;
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 12px;
+      color: #64748b;
+      margin-bottom: 24px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* ── LEFT PANEL ── */
+    .panel {
+      background: #1e2130;
+      border: 1px solid #2d3148;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid #2d3148;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #64748b;
+    }
+
+    .panel-body { padding: 16px; }
+
+    /* Scenario buttons */
+    .scenarios { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+
+    .scenario-btn {
+      display: flex; align-items: center; gap: 12px;
+      background: #252840; border: 1.5px solid #2d3148;
+      border-radius: 8px; padding: 10px 14px;
+      cursor: pointer; text-align: left; transition: border-color 0.15s;
+      width: 100%;
+    }
+    .scenario-btn:hover { border-color: #4f5a8a; }
+    .scenario-btn.active-cache  { border-color: #22c55e; background: #052e16; }
+    .scenario-btn.active-cold   { border-color: #f59e0b; background: #1c1409; }
+    .scenario-btn.active-warm   { border-color: #3b82f6; background: #0a1628; }
+
+    .scenario-icon { font-size: 20px; flex-shrink: 0; }
+    .scenario-text .s-title { font-size: 13px; font-weight: 700; color: #e2e8f0; }
+    .scenario-text .s-desc  { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .scenario-text .s-lat   { font-size: 11px; font-weight: 700; margin-top: 3px; }
+    .active-cache .s-lat { color: #22c55e; }
+    .active-cold  .s-lat { color: #f59e0b; }
+    .active-warm  .s-lat { color: #3b82f6; }
+
+    /* Form fields */
+    .field { margin-bottom: 14px; }
+    .field label { font-size: 11px; font-weight: 600; color: #94a3b8; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .field input, .field textarea {
+      width: 100%; background: #0f1117; border: 1.5px solid #2d3148;
+      border-radius: 6px; padding: 8px 10px; color: #e2e8f0;
+      font-size: 12px; font-family: monospace; outline: none;
+      transition: border-color 0.15s;
+    }
+    .field input:focus, .field textarea:focus { border-color: #4f5a8a; }
+    .field textarea { resize: vertical; min-height: 80px; }
+    .field .hint { font-size: 10px; color: #4b5563; margin-top: 4px; }
+
+    .go-btn {
+      width: 100%; padding: 11px;
+      background: #3b82f6; border: none; border-radius: 8px;
+      color: #fff; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .go-btn:hover { background: #2563eb; }
+    .go-btn:disabled { background: #1e3a5f; color: #4b5563; cursor: not-allowed; }
+
+    /* ── RIGHT PANEL ── */
+    .result-panel {
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    /* Status bar */
+    .status-bar {
+      background: #1e2130; border: 1px solid #2d3148;
+      border-radius: 10px; padding: 16px 20px;
+      display: flex; align-items: center; gap: 20px;
+      min-height: 72px;
+    }
+
+    .status-bar.idle    { border-color: #2d3148; }
+    .status-bar.loading { border-color: #3b82f6; }
+    .status-bar.hit     { border-color: #22c55e; }
+    .status-bar.cold    { border-color: #f59e0b; }
+    .status-bar.warm    { border-color: #3b82f6; }
+    .status-bar.error   { border-color: #ef4444; }
+
+    .path-badge {
+      padding: 5px 12px; border-radius: 20px; font-size: 12px;
+      font-weight: 700; white-space: nowrap; flex-shrink: 0;
+    }
+    .badge-idle    { background: #1e293b; color: #64748b; border: 1px solid #2d3148; }
+    .badge-loading { background: #0a1628; color: #3b82f6; border: 1px solid #3b82f6; }
+    .badge-hit     { background: #052e16; color: #22c55e; border: 1px solid #22c55e; }
+    .badge-cold    { background: #1c1409; color: #f59e0b; border: 1px solid #f59e0b; }
+    .badge-warm    { background: #0a1628; color: #3b82f6; border: 1px solid #3b82f6; }
+    .badge-error   { background: #1c0a0a; color: #ef4444; border: 1px solid #ef4444; }
+
+    .stat-group { display: flex; gap: 24px; }
+    .stat { display: flex; flex-direction: column; }
+    .stat .stat-val { font-size: 22px; font-weight: 800; color: #fff; line-height: 1; }
+    .stat .stat-lbl { font-size: 10px; color: #64748b; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .status-message { font-size: 13px; color: #64748b; margin-left: auto; }
+
+    /* Recommendations grid */
+    .recs-panel {
+      background: #1e2130; border: 1px solid #2d3148;
+      border-radius: 10px; overflow: hidden;
+    }
+
+    .recs-header {
+      padding: 12px 16px; border-bottom: 1px solid #2d3148;
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; color: #64748b;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .recs-list { padding: 8px; }
+
+    .rec-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 10px; border-radius: 6px;
+      border-bottom: 1px solid #1a1e2e;
+      transition: background 0.1s;
+    }
+    .rec-item:last-child { border-bottom: none; }
+    .rec-item:hover { background: #252840; }
+
+    .rec-rank {
+      font-size: 12px; font-weight: 700; color: #4b5563;
+      min-width: 24px; text-align: center;
+    }
+    .rec-info { flex: 1; min-width: 0; }
+    .rec-title {
+      font-size: 13px; color: #e2e8f0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rec-id { font-size: 10px; font-family: monospace; color: #4b5563; margin-top: 2px; }
+    .rec-sid {
+      display: flex; gap: 3px; flex-shrink: 0;
+    }
+    .sid-token {
+      padding: 2px 5px; border-radius: 3px;
+      font-family: monospace; font-size: 10px; font-weight: 700;
+    }
+    .sid-0 { background: #1e3a5f; color: #60a5fa; }
+    .sid-1 { background: #2e1065; color: #a78bfa; }
+    .sid-2 { background: #052e16; color: #4ade80; }
+    .sid-3 { background: #431407; color: #fb923c; }
+
+    .empty-state {
+      padding: 48px 24px; text-align: center;
+      color: #4b5563; font-size: 13px;
+    }
+    .empty-state .icon { font-size: 32px; margin-bottom: 8px; }
+
+    /* Raw JSON toggle */
+    .json-panel {
+      background: #1e2130; border: 1px solid #2d3148;
+      border-radius: 10px; overflow: hidden;
+    }
+    .json-toggle {
+      width: 100%; padding: 10px 16px; background: none; border: none;
+      cursor: pointer; font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.07em; color: #64748b;
+      text-align: left; display: flex; justify-content: space-between;
+    }
+    .json-toggle:hover { color: #94a3b8; }
+    pre {
+      padding: 12px 16px; font-size: 11px; font-family: monospace;
+      color: #94a3b8; overflow-x: auto; border-top: 1px solid #2d3148;
+      white-space: pre-wrap; word-break: break-all;
+      max-height: 200px; overflow-y: auto;
+    }
+
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid #1e3a5f; border-top-color: #3b82f6;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+      margin-right: 6px; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<h1>RecSys Demo Panel</h1>
+<div class="subtitle">RQ-VAE + SASRec · Redis · FastAPI · localhost:8000</div>
+
+<div style="background:#1e2130;border:1px solid #2d3148;border-radius:10px;padding:16px 20px;margin-bottom:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;font-size:12px;line-height:1.6">
+  <div>
+    <div style="font-weight:700;color:#fff;margin-bottom:6px">What this is</div>
+    <div style="color:#94a3b8">A production-style recommendation system built on the Amazon Beauty dataset. Items are encoded into semantic ID codes (RQ-VAE), and a sequential model (SASRec) predicts what a user will want next based on their browsing history.</div>
+  </div>
+  <div>
+    <div style="font-weight:700;color:#fff;margin-bottom:6px">Three serving paths</div>
+    <div style="color:#94a3b8"><span style="color:#22c55e;font-weight:700">Cache hit</span> — recs precomputed offline, served from Redis instantly.<br><span style="color:#f59e0b;font-weight:700">Cold start</span> — new user with &lt;3 items, uses category prefix lookup.<br><span style="color:#3b82f6;font-weight:700">Warm user</span> — SASRec runs live beam search over semantic ID space.</div>
+  </div>
+  <div>
+    <div style="font-weight:700;color:#fff;margin-bottom:6px">How to use this panel</div>
+    <div style="color:#94a3b8">Click a scenario button to pre-fill a real example, then hit <strong style="color:#fff">Get Recommendations</strong>. The badge and latency show which path served the response. Each recommendation includes its semantic ID tokens — the discrete codes that represent it in the model.</div>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- LEFT: Controls -->
+  <div class="panel">
+    <div class="panel-header">Scenarios</div>
+    <div class="panel-body">
+
+      <div class="scenarios">
+        <button class="scenario-btn" id="btn-cache" onclick="loadScenario('cache')">
+          <span class="scenario-icon">⚡</span>
+          <div class="scenario-text">
+            <div class="s-title">Cache Hit</div>
+            <div class="s-desc">Known user · precomputed recs in Redis</div>
+            <div class="s-lat">~1–4 ms</div>
+          </div>
+        </button>
+        <button class="scenario-btn" id="btn-cold" onclick="loadScenario('cold')">
+          <span class="scenario-icon">🧊</span>
+          <div class="scenario-text">
+            <div class="s-title">Cold Start</div>
+            <div class="s-desc">New user · &lt;3 items · prefix lookup</div>
+            <div class="s-lat">~5–20 ms</div>
+          </div>
+        </button>
+        <button class="scenario-btn" id="btn-warm" onclick="loadScenario('warm')">
+          <span class="scenario-icon">🧠</span>
+          <div class="scenario-text">
+            <div class="s-title">Warm User (SASRec)</div>
+            <div class="s-desc">Cache miss · ≥3 items · real-time inference</div>
+            <div class="s-lat">~20–100 ms</div>
+          </div>
+        </button>
+      </div>
+
+      <div class="field">
+        <label>User ID</label>
+        <input type="text" id="user_id" placeholder="leave blank for anonymous" />
+      </div>
+
+      <div class="field">
+        <label>Session Items (one per line)</label>
+        <textarea id="session" placeholder="B001XY&#10;B002AB&#10;B003CD"></textarea>
+        <div class="hint">Item IDs from Amazon Reviews 2023 All_Beauty catalog</div>
+      </div>
+
+      <div class="field">
+        <label>Top K</label>
+        <input type="number" id="top_k" value="5" min="1" max="20" />
+      </div>
+
+      <button class="go-btn" id="go-btn" onclick="recommend()">
+        Get Recommendations
+      </button>
+
+    </div>
+  </div>
+
+  <!-- RIGHT: Results -->
+  <div class="result-panel">
+
+    <!-- Status bar -->
+    <div class="status-bar idle" id="status-bar">
+      <span class="path-badge badge-idle" id="path-badge">—</span>
+      <div class="stat-group" id="stat-group">
+        <div class="stat">
+          <span class="stat-val" id="stat-latency">—</span>
+          <span class="stat-lbl">latency <span id="latency-source" style="font-weight:400;font-size:9px;color:#4b5563"></span></span>
+        </div>
+        <div class="stat">
+          <span class="stat-val" id="stat-count">—</span>
+          <span class="stat-lbl">results</span>
+        </div>
+        <div class="stat">
+          <span class="stat-val" id="stat-session">—</span>
+          <span class="stat-lbl">session items</span>
+        </div>
+      </div>
+      <span class="status-message" id="status-msg" style="font-size:12px;color:#64748b;margin-left:auto;max-width:300px;text-align:right;line-height:1.4">Click a scenario button then Get Recommendations</span>
+    </div>
+
+    <!-- Path explanation -->
+    <div id="path-explainer" style="display:none;background:#1e2130;border:1px solid #2d3148;border-radius:10px;padding:14px 18px;font-size:12px;line-height:1.6;color:#94a3b8"></div>
+
+    <!-- Recommendations -->
+    <div class="recs-panel">
+      <div class="recs-header">
+        <span>Recommendations</span>
+        <span id="cold-method-tag" style="font-size:11px;color:#f59e0b;display:none"></span>
+      </div>
+      <div class="recs-list" id="recs-list">
+        <div class="empty-state">
+          <div class="icon">📦</div>
+          No recommendations yet
+        </div>
+      </div>
+    </div>
+
+    <!-- Raw JSON -->
+    <div class="json-panel" id="json-panel" style="display:none">
+      <button class="json-toggle" onclick="toggleJson()">
+        <span>Raw Response</span>
+        <span id="json-arrow">▼</span>
+      </button>
+      <pre id="json-body" style="display:none"></pre>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const API = 'http://localhost:8000';
+
+  // Friendly label → real ID mappings
+  const USER_MAP = {
+    'Nail Artist':         'demo_user_nails',
+    'Skincare Enthusiast': 'demo_user_skincare',
+  };
+
+  const ITEM_MAP = {
+    // Cache hit: nail polish session
+    'Sally Hansen Insta-Dri Nail Color':  'B081GLDP8J',
+    'Solid Gel Nail Polish Set':          'B0B63J9BJT',
+    'Kleancolor Metallic Nail Polish':    'B08NFLG5RK',
+    'Nail Polish Organizer Case':         'B0BXKXHYNL',
+    'Suave Curl Mousse':                  'B00IHTE6DS',
+    // Warm user: skincare + makeup routine
+    'Eye Love Lid & Lash Cleanser':       'B06XMQW3QC',
+    'YOUTHLAB Radiance Roller':           'B0C5JTBBF7',
+    'COVERGIRL Smoothers Concealer':      'B09CB5S4V4',
+    'Tree of Life Vitamin C Serum':       'B0C37PFCWW',
+    'Mary Kay Foundation Primer':         'B07BVBW1YQ',
+    // Cold start: single lash product
+    'Newcally Mink False Eyelashes':      'B09WHMND5W',
+  };
+
+  const SCENARIOS = {
+    cache: {
+      user_id: 'Nail Artist',
+      session: ['Sally Hansen Insta-Dri Nail Color', 'Solid Gel Nail Polish Set', 'Kleancolor Metallic Nail Polish', 'Nail Polish Organizer Case', 'Suave Curl Mousse'],
+      top_k: 5,
+    },
+    cold: {
+      user_id: '',
+      session: ['Newcally Mink False Eyelashes'],
+      top_k: 5,
+    },
+    warm: {
+      user_id: '',
+      session: ['Eye Love Lid & Lash Cleanser', 'YOUTHLAB Radiance Roller', 'COVERGIRL Smoothers Concealer', 'Tree of Life Vitamin C Serum', 'Mary Kay Foundation Primer'],
+      top_k: 5,
+    },
+  };
+
+  function resolveUserId(label) {
+    return USER_MAP[label] || label;
+  }
+
+  function resolveSession(lines) {
+    return lines.map(l => ITEM_MAP[l.trim()] || l.trim());
+  }
+
+  let jsonVisible = false;
+
+  function loadScenario(type) {
+    const s = SCENARIOS[type];
+    document.getElementById('user_id').value = s.user_id;
+    document.getElementById('session').value = s.session.join('\n');
+    document.getElementById('top_k').value = s.top_k;
+
+    ['cache','cold','warm'].forEach(t => {
+      document.getElementById(`btn-${t}`).className = 'scenario-btn';
+    });
+    document.getElementById(`btn-${type}`).classList.add(
+      type === 'cache' ? 'active-cache' : type === 'cold' ? 'active-cold' : 'active-warm'
+    );
+  }
+
+  async function recommend() {
+    const user_id = document.getElementById('user_id').value.trim();
+    const sessionRaw = document.getElementById('session').value.trim();
+    const top_k = parseInt(document.getElementById('top_k').value);
+
+    if (!sessionRaw) { alert('Add at least one item to the session'); return; }
+
+    const sessionLines = sessionRaw.split('\n').filter(Boolean);
+    const session = resolveSession(sessionLines);
+    const resolvedUserId = resolveUserId(user_id);
+
+    setLoading(true);
+
+    const body = { session, top_k };
+    if (resolvedUserId) body.user_id = resolvedUserId;
+
+    const t0 = performance.now();
+    let data, error, serverLatency = null;
+    try {
+      const res = await fetch(`${API}/recommend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const rawMs = res.headers.get('X-Serving-Latency-Ms');
+      if (rawMs) serverLatency = Math.round(parseFloat(rawMs));
+      data = await res.json();
+      if (!res.ok) error = data.detail || 'API error';
+    } catch (e) {
+      error = `Cannot reach ${API} — is the server running? (make up && make serve)`;
+    }
+    const latency = Math.round(performance.now() - t0);
+
+    setLoading(false);
+
+    if (error) {
+      setError(error);
+      return;
+    }
+
+    renderResult(data, latency, serverLatency);
+  }
+
+  function renderResult(data, latency, serverLatency) {
+    const recs = data.recommendations || [];
+    const cacheHit = data.cache_hit;
+    const coldMethod = data.cold_start_method;
+
+    // Determine path type
+    let pathType, badgeClass, barClass, pathLabel;
+    if (cacheHit) {
+      pathType = 'hit'; pathLabel = 'Cache Hit';
+      badgeClass = 'badge-hit'; barClass = 'hit';
+    } else if (coldMethod) {
+      pathType = 'cold';
+      pathLabel = coldMethod === 'intent' ? 'Cold Start · LLM Intent' : 'Cold Start · Prefix Fallback';
+      badgeClass = 'badge-cold'; barClass = 'cold';
+    } else {
+      pathType = 'warm'; pathLabel = 'Warm User · SASRec';
+      badgeClass = 'badge-warm'; barClass = 'warm';
+    }
+
+    // Status bar
+    const bar = document.getElementById('status-bar');
+    bar.className = `status-bar ${barClass}`;
+
+    const badge = document.getElementById('path-badge');
+    badge.className = `path-badge ${badgeClass}`;
+    badge.textContent = pathLabel;
+
+    if (serverLatency !== null) {
+      document.getElementById('stat-latency').textContent = `${serverLatency}ms`;
+      document.getElementById('latency-source').textContent = 'avg · server-side';
+    } else {
+      document.getElementById('stat-latency').textContent = `${latency}ms`;
+      document.getElementById('latency-source').textContent = 'client-side';
+    }
+    document.getElementById('stat-count').textContent = recs.length;
+    document.getElementById('stat-session').textContent = data.session_length ?? '—';
+    document.getElementById('status-msg').textContent = cacheHit
+      ? 'Served from precomputed Redis cache'
+      : coldMethod
+        ? coldMethod === 'intent' ? 'LLM inferred intent → cosine re-rank' : 'Random sample from prefix bucket'
+        : 'SASRec beam search → Redis reverse lookup';
+
+    // Path explainer
+    const explainers = {
+      hit: `<strong style="color:#22c55e">Cache Hit</strong> — This user's recommendations were computed offline by running SASRec beam search over their full interaction history. The result was stored in Redis with a 24h TTL. This request never touched the model — it's a pure Redis GET, which is why it's so fast.`,
+      cold: `<strong style="color:#f59e0b">Cold Start</strong> — This user has fewer than 3 session items, which isn't enough for SASRec's self-attention to predict meaningfully. Instead, the system finds the most common <code style="font-family:monospace;font-size:11px">(c0, c1)</code> category prefix across the session items and returns a random sample of items from that prefix bucket in Redis — always fast, always grounded in the user's category.`,
+      warm: `<strong style="color:#3b82f6">Warm User (SASRec)</strong> — Cache miss with enough session history. Each session item was looked up in Redis to get its semantic ID codes <code style="font-family:monospace;font-size:11px">[c0, c1, c2]</code>, stacked into a tensor, and fed through SASRec. The model predicted the most likely next codes, which were expanded into real items via Redis prefix lookup. The result is now cached for 24h.`,
+    };
+    const explainer = document.getElementById('path-explainer');
+    explainer.style.display = 'block';
+    explainer.innerHTML = explainers[pathType] || '';
+
+    // Cold start method tag
+    const methodTag = document.getElementById('cold-method-tag');
+    if (coldMethod) {
+      methodTag.textContent = coldMethod === 'intent' ? 'intent' : 'prefix_fallback';
+      methodTag.style.display = 'inline';
+    } else {
+      methodTag.style.display = 'none';
+    }
+
+    // Recommendations list
+    const list = document.getElementById('recs-list');
+    if (recs.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="icon">🔍</div>No results — item IDs may not be in the catalog</div>`;
+    } else {
+      list.innerHTML = recs.map((r, i) => {
+        const sid = (r.semantic_id || []);
+        const tokens = sid.map((c, lvl) =>
+          `<span class="sid-token sid-${lvl}">${c}</span>`
+        ).join('');
+        return `
+          <div class="rec-item">
+            <div class="rec-rank">${i + 1}</div>
+            <div class="rec-info">
+              <div class="rec-title">${r.title || r.item_id}</div>
+              <div class="rec-id">${r.item_id}</div>
+            </div>
+            <div class="rec-sid">${tokens}</div>
+          </div>`;
+      }).join('');
+    }
+
+    // Raw JSON
+    document.getElementById('json-panel').style.display = 'block';
+    document.getElementById('json-body').textContent = JSON.stringify(data, null, 2);
+
+    // Scroll results into view
+    document.getElementById('status-bar').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function setLoading(on) {
+    const btn = document.getElementById('go-btn');
+    const bar = document.getElementById('status-bar');
+    const badge = document.getElementById('path-badge');
+    if (on) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Requesting…';
+      bar.className = 'status-bar loading';
+      badge.className = 'path-badge badge-loading';
+      badge.textContent = 'Requesting…';
+      document.getElementById('status-msg').textContent = '';
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Get Recommendations';
+    }
+  }
+
+  function setError(msg) {
+    const bar = document.getElementById('status-bar');
+    bar.className = 'status-bar error';
+    document.getElementById('path-badge').className = 'path-badge badge-error';
+    document.getElementById('path-badge').textContent = 'Error';
+    document.getElementById('status-msg').textContent = msg;
+    document.getElementById('stat-latency').textContent = '—';
+    document.getElementById('stat-count').textContent = '—';
+  }
+
+  function toggleJson() {
+    jsonVisible = !jsonVisible;
+    document.getElementById('json-body').style.display = jsonVisible ? 'block' : 'none';
+    document.getElementById('json-arrow').textContent = jsonVisible ? '▲' : '▼';
+  }
+</script>
+</body>
+</html>
