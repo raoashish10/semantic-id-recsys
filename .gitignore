@@ -28,3 +28,4 @@ notebooks/.ipynb_checkpoints/
 
 # Env
 .env
+.claude/
