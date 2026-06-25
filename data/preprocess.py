@@ -30,7 +30,10 @@ def build_items() -> pd.DataFrame:
     rows = []
     with (RAW / "meta.jsonl").open() as f:
         for line in f:
-            r = json.loads(line)
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
             title = r.get("title", "").strip()
             # Flatten description list if present
             desc_raw = r.get("description", [])
@@ -53,7 +56,10 @@ def build_sequences() -> pd.DataFrame:
     rows = []
     with (RAW / "interactions.jsonl").open() as f:
         for line in f:
-            r = json.loads(line)
+            try:
+                r = json.loads(line)
+            except json.JSONDecodeError:
+                continue
             rows.append(
                 {
                     "user_id": r["user_id"],
