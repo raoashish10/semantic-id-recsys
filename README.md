@@ -1,4 +1,4 @@
-# recsys-mlops
+# Recommendation System with Semantic IDs
 
 Offline-to-online recommendation system built on semantic IDs (RQ-VAE) and sequential modeling (SASRec), following the retrieval → ranking pattern used in production discovery systems.
 
@@ -277,7 +277,7 @@ make load-test   # 50 users × 60s → tests/load/report.html
 ## Project layout
 
 ```
-recsys-mlops/
+semantic-id-recsys/
 ├── data/                    # download + preprocess scripts
 ├── offline/
 │   ├── embeddings/          # sentence-transformer inference
