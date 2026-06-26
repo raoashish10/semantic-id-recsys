@@ -83,7 +83,7 @@ def evaluate(
         # Hit@10: check if the true next item's codes are all in the top-10 per level.
         # With left-padding, the last real token is always at position max_len-1.
         last_pos = inp.shape[1] - 1
-        has_real = (~mask[:, last_pos])  # False if the last position is padding
+        has_real = ~mask[:, last_pos]  # False if the last position is padding
         for b in range(inp.shape[0]):
             if not has_real[b]:
                 continue

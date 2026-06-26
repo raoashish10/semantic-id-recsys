@@ -187,8 +187,12 @@ def train(cfg: dict = CONFIG) -> None:
                 for lvl, quantizer in enumerate(model.quantizers):
                     dead = (code_counts[lvl] == 0).nonzero(as_tuple=True)[0]
                     if len(dead) > 0:
-                        rand_idx = torch.randperm(len(residual), device=device)[:len(dead)]
-                        quantizer.codebook.weight.data[dead] = residual[rand_idx].detach()
+                        rand_idx = torch.randperm(len(residual), device=device)[
+                            : len(dead)
+                        ]
+                        quantizer.codebook.weight.data[dead] = residual[
+                            rand_idx
+                        ].detach()
                     # recompute residual for next level
                     dists = (
                         residual.pow(2).sum(-1, keepdim=True)

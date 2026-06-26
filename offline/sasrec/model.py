@@ -105,7 +105,9 @@ class SASRec(nn.Module):
         )
 
         h = self.transformer(x, mask=causal_mask, src_key_padding_mask=padding_mask)
-        h = torch.nan_to_num(h, nan=0.0)  # padding positions with all-masked keys produce nan
+        h = torch.nan_to_num(
+            h, nan=0.0
+        )  # padding positions with all-masked keys produce nan
         # h: (B, T, D)
 
         return [head(h) for head in self.output_heads]  # L × (B, T, num_codes)

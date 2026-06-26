@@ -31,9 +31,12 @@ def _stream_download(url: str, dest: Path, max_lines: int | None = None) -> None
     console.print(f"  Streaming {url} ...")
     with requests.get(url, stream=True, timeout=60) as r:
         r.raise_for_status()
-        with open(dest, "wb") as f, Progress(
-            BarColumn(), DownloadColumn(), TimeRemainingColumn(), console=console
-        ) as progress:
+        with (
+            open(dest, "wb") as f,
+            Progress(
+                BarColumn(), DownloadColumn(), TimeRemainingColumn(), console=console
+            ) as progress,
+        ):
             task = progress.add_task("download", total=None)
             lines_written = 0
             for chunk in r.iter_lines():
